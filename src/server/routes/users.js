@@ -41,8 +41,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
     const next_user_id = (row.max_id || 0) + 1;
     
     db.run(
-      'INSERT INTO users (user_id, full_name, login, password_hash, role, addwho) VALUES (?, ?, ?, ?, ?, ?)',
-      [next_user_id, full_name, login, password_hash, role, 'admin'],
+      'INSERT INTO users (user_id, full_name, login, password_hash, role, role_id, addwho) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [next_user_id, full_name, login, password_hash, role, 1, 'admin'],
       function(err) {
         if (err) {
           console.error('❌ Ошибка создания пользователя:', err);
@@ -70,11 +70,11 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   if (password && password.trim() !== '') {
     // Если пароль указан, обновляем его
     const password_hash = bcrypt.hashSync(password, 10);
-    query = 'UPDATE users SET full_name = ?, login = ?, password_hash = ?, role = ? WHERE id = ?';
+    query = 'UPDATE users SET full_name = ?, login = ?, password_hash = ?, role = ? WHERE user_id = ?';
     params = [full_name, login, password_hash, role, id];
   } else {
     // Если пароль не указан, не обновляем его
-    query = 'UPDATE users SET full_name = ?, login = ?, role = ? WHERE id = ?';
+    query = 'UPDATE users SET full_name = ?, login = ?, role = ? WHERE user_id = ?';
     params = [full_name, login, role, id];
   }
   
