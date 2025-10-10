@@ -134,7 +134,7 @@ async function createAdminUser(db) {
         const hashedPassword = bcrypt.hashSync(adminPassword, 10);
         
         const sql = `
-            INSERT OR IGNORE INTO users (user_id, full_name, login, password_hash, role, addwho) 
+            INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role, addwho) 
             VALUES (?, ?, ?, ?, ?, ?)
         `;
         
