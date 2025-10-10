@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки - ПВЗ Комментарии</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="comment-icon">💬</div>
+                <div>ПВЗ Комментарии</div>
+            </div>
+            <div class="nav">
+                <a href="/main" class="nav-item">Главная</a>
+                <a href="/users" class="nav-item">Пользователи</a>
+                <a href="/roles" class="nav-item">Роли</a>
+                <a href="/pvz" class="nav-item">Список ПВЗ</a>
+                <a href="/settings" class="nav-item active">Настройки</a>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
+                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
+            </div>
+        </nav>
+
+        <!-- Основное содержимое -->
+        <div class="content">
+            <div class="card">
+                <div class="toolbar">
+                    <h1>Настройки системы</h1>
+                    <div class="spacer"></div>
+                    <span id="userInfo" class="user-info">Загрузка...</span>
+                </div>
+                
+                <div class="settings-section">
+                    <h2>Настройки Google Sheets</h2>
+                    <p class="section-description">Настройте подключение к Google Таблицам для работы с данными</p>
+                    
+                    <form id="settingsForm" class="settings-form">
+                        <div class="field">
+                            <label for="pvzTableId">ID Google Таблицы ПВЗ</label>
+                            <input type="text" id="pvzTableId" name="pvzTableId" placeholder="Введите ID таблицы из URL" required>
+                            <small class="form-help">ID находится в URL таблицы: docs.google.com/spreadsheets/d/ID/edit</small>
+                        </div>
+
+                        <div class="field">
+                            <label for="pvzSheetName">Название листа с данными ПВЗ</label>
+                            <input type="text" id="pvzSheetName" name="pvzSheetName" placeholder="Например: Лист1" required>
+                            <small class="form-help">Название листа в Google Таблице, где находятся данные ПВЗ</small>
+                        </div>
+
+                        <div class="field">
+                            <label for="updateFrequency">Частота обновления</label>
+                            <select id="updateFrequency" name="updateFrequency">
+                                <option value="15">15 минут</option>
+                                <option value="30">30 минут</option>
+                                <option value="60" selected>1 час</option>
+                                <option value="120">2 часа</option>
+                                <option value="240">4 часа</option>
+                                <option value="480">8 часов</option>
+                                <option value="1440">24 часа</option>
+                            </select>
+                            <small class="form-help">Как часто система будет синхронизировать данные с Google Таблицей</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="btnTestConnection" class="btn btn-secondary">Тестировать подключение</button>
+                            <button type="submit" id="btnSaveSettings" class="btn btn-primary">Сохранить настройки</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="settings-section" id="syncStatusSection" class="hidden">
+                    <h2>Статус синхронизации</h2>
+                    <div class="sync-status">
+                        <div class="status-item">
+                            <span class="status-label">Последнее обновление:</span>
+                            <span id="lastUpdate" class="status-value">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Статус шедулера:</span>
+                            <span id="schedulerStatus" class="status-value">-</span>
+                        </div>
+                        <div class="scheduler-controls">
+                            <button class="btn btn-success" id="btnStartScheduler">Запустить</button>
+                            <button class="btn btn-warning" id="btnStopScheduler">Остановить</button>
+                            <button class="btn btn-info" id="btnForceSync">Синхронизировать сейчас</button>
+                            <button class="btn btn-secondary" id="btnSyncLogs">Лог синхронизации</button>
+                </div>
+            </div>
+    </div>
+
+                <div class="settings-section">
+                    <h2>Статус подключения</h2>
+                    <div id="connectionStatus" class="status-indicator">
+                        <div class="status-dot status-unknown"></div>
+                        <span class="status-text">Не проверено</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение модулей -->
+    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/auth/auth.js"></script>
+
+    <script>
+        // Инициализация страницы настроек
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Страница настроек загружена');
+
+            // Проверяем аутентификацию
+            if (!apiClient.checkAuthAndRedirect()) {
+                return;
+            }
+
+            // Отображаем информацию о пользователе
+            const user = authModule.getCurrentUser();
+            if (user) {
+                document.getElementById('userInfo').textContent = `${user.full_name} (${user.role})`;
+            }
+
+            // Настраиваем кнопку выхода
+            // Кнопка выхода настраивается в модуле навигации
+
+            // Загружаем настройки
+            await loadSettings();
+
+            // Настраиваем обработчики формы
+            setupFormHandlers();
+            
+            // Загружаем статус синхронизации
+            await loadSyncStatus();
+
+            console.log('📄 Страница настроек готова к работе');
+        });
+
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings', {
+                    headers: apiClient.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const settings = await response.json();
+                    
+                    // Заполняем форму
+                    document.getElementById('pvzTableId').value = settings.pvzTableId || '';
+                    document.getElementById('pvzSheetName').value = settings.pvzSheetName || '';
+                    document.getElementById('updateFrequency').value = settings.updateFrequency || '60';
+                    
+                    // Показываем секцию синхронизации если есть настройки
+                    if (settings.pvzTableId) {
+                        document.getElementById('syncStatusSection').style.display = 'block';
+                    }
+                    
+                    console.log('✅ Настройки загружены');
+                } else {
+                    console.error('❌ Ошибка загрузки настроек');
+                }
+            } catch (error) {
+                console.error('❌ Ошибка загрузки настроек:', error);
+            }
+        }
+
+        async function loadSyncStatus() {
+            try {
+                const response = await fetch('/api/data/scheduler/status', {
+                    headers: apiClient.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Обновляем статус
+                    document.getElementById('lastUpdate').textContent = 
+                        data.settings.lastUpdate ? 
+                        new Date(data.settings.lastUpdate).toLocaleString() : 
+                        'Никогда';
+                    
+                    document.getElementById('schedulerStatus').textContent = 
+                        data.status.isRunning ? 'Запущен' : 'Остановлен';
+                    
+                    console.log('✅ Статус синхронизации загружен');
+                } else {
+                    console.error('❌ Ошибка загрузки статуса синхронизации');
+                }
+            } catch (error) {
+                console.error('❌ Ошибка загрузки статуса синхронизации:', error);
+            }
+        }
+
+        function setupFormHandlers() {
+            const form = document.getElementById('settingsForm');
+            const btnTestConnection = document.getElementById('btnTestConnection');
+            const btnSaveSettings = document.getElementById('btnSaveSettings');
+            
+            // Кнопки управления синхронизацией
+            const btnStartScheduler = document.getElementById('btnStartScheduler');
+            const btnStopScheduler = document.getElementById('btnStopScheduler');
+            const btnForceSync = document.getElementById('btnForceSync');
+
+            // Обработчик сохранения настроек
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const settings = {
+                    pvzTableId: formData.get('pvzTableId'),
+                    pvzSheetName: formData.get('pvzSheetName'),
+                    updateFrequency: formData.get('updateFrequency')
+                };
+
+                try {
+                    btnSaveSettings.disabled = true;
+                    btnSaveSettings.textContent = 'Сохранение...';
+
+                    const response = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: apiClient.getAuthHeaders(),
+                        body: JSON.stringify(settings)
+                    });
+
+                    if (response.ok) {
+                        showNotification('Настройки сохранены успешно', 'success');
+                    } else {
+                        const error = await response.json();
+                        showNotification(error.error || 'Ошибка сохранения настроек', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка сохранения настроек:', error);
+                    showNotification('Ошибка сохранения настроек', 'error');
+                } finally {
+                    btnSaveSettings.disabled = false;
+                    btnSaveSettings.textContent = 'Сохранить настройки';
+                }
+            });
+
+            // Обработчик тестирования подключения
+            btnTestConnection.addEventListener('click', async () => {
+                const pvzTableId = document.getElementById('pvzTableId').value;
+                const pvzSheetName = document.getElementById('pvzSheetName').value;
+
+                if (!pvzTableId || !pvzSheetName) {
+                    showNotification('Заполните ID таблицы и название листа перед тестированием', 'warning');
+                    return;
+                }
+
+                try {
+                    btnTestConnection.disabled = true;
+                    btnTestConnection.textContent = 'Тестирование...';
+                    updateConnectionStatus('testing', 'Проверка подключения...');
+
+                    const response = await fetch('/api/settings/test-connection', {
+                        method: 'POST',
+                        headers: apiClient.getAuthHeaders(),
+                        body: JSON.stringify({
+                            pvzTableId,
+                            pvzSheetName
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            updateConnectionStatus('success', 'Подключение успешно');
+                            showNotification('Подключение к Google Sheets работает', 'success');
+                        } else {
+                            updateConnectionStatus('error', 'Ошибка подключения');
+                            showNotification(result.error || 'Ошибка подключения', 'error');
+                        }
+                    } else {
+                        updateConnectionStatus('error', 'Ошибка подключения');
+                        showNotification('Ошибка тестирования подключения', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка тестирования подключения:', error);
+                    updateConnectionStatus('error', 'Ошибка подключения');
+                    showNotification('Ошибка тестирования подключения', 'error');
+                } finally {
+                    btnTestConnection.disabled = false;
+                    btnTestConnection.textContent = 'Тестировать подключение';
+                }
+            });
+
+            // Обработчики кнопок синхронизации
+            if (btnStartScheduler) {
+                btnStartScheduler.addEventListener('click', async () => {
+                    try {
+                        btnStartScheduler.disabled = true;
+                        btnStartScheduler.textContent = 'Запуск...';
+
+                        const response = await fetch('/api/data/scheduler/start', {
+                            method: 'POST',
+                            headers: apiClient.getAuthHeaders()
+                        });
+
+                        if (response.ok) {
+                            showNotification('Шедулер запущен', 'success');
+                            await loadSyncStatus();
+                        } else {
+                            showNotification('Ошибка запуска шедулера', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка запуска шедулера:', error);
+                        showNotification('Ошибка запуска шедулера', 'error');
+                    } finally {
+                        btnStartScheduler.disabled = false;
+                        btnStartScheduler.textContent = 'Запустить';
+                    }
+                });
+            }
+
+            if (btnStopScheduler) {
+                btnStopScheduler.addEventListener('click', async () => {
+                    try {
+                        btnStopScheduler.disabled = true;
+                        btnStopScheduler.textContent = 'Остановка...';
+
+                        const response = await fetch('/api/data/scheduler/stop', {
+                            method: 'POST',
+                            headers: apiClient.getAuthHeaders()
+                        });
+
+                        if (response.ok) {
+                            showNotification('Шедулер остановлен', 'success');
+                            await loadSyncStatus();
+                        } else {
+                            showNotification('Ошибка остановки шедулера', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка остановки шедулера:', error);
+                        showNotification('Ошибка остановки шедулера', 'error');
+                    } finally {
+                        btnStopScheduler.disabled = false;
+                        btnStopScheduler.textContent = 'Остановить';
+                    }
+                });
+            }
+
+            if (btnForceSync) {
+                btnForceSync.addEventListener('click', async () => {
+                    try {
+                        btnForceSync.disabled = true;
+                        btnForceSync.textContent = 'Синхронизация...';
+
+                        const response = await fetch('/api/data/sync', {
+                            method: 'POST',
+                            headers: apiClient.getAuthHeaders()
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            showNotification(`Синхронизация завершена: ${result.result.synced} новых, ${result.result.updated} обновленных`, 'success');
+                            await loadSyncStatus();
+                        } else {
+                            showNotification('Ошибка синхронизации', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка синхронизации:', error);
+                        showNotification('Ошибка синхронизации', 'error');
+                    } finally {
+                        btnForceSync.disabled = false;
+                        btnForceSync.textContent = 'Синхронизировать сейчас';
+                    }
+                });
+            }
+
+            // Обработчик кнопки "Лог синхронизации"
+            const btnSyncLogs = document.getElementById('btnSyncLogs');
+            if (btnSyncLogs) {
+                btnSyncLogs.addEventListener('click', () => {
+                    showSyncLogsModal();
+                });
+            }
+        }
+
+        function updateConnectionStatus(status, text) {
+            const statusElement = document.getElementById('connectionStatus');
+            const dot = statusElement.querySelector('.status-dot');
+            const textElement = statusElement.querySelector('.status-text');
+
+            // Удаляем все классы статуса
+            dot.className = 'status-dot';
+            
+            // Добавляем соответствующий класс
+            switch (status) {
+                case 'success':
+                    dot.classList.add('status-success');
+                    break;
+                case 'error':
+                    dot.classList.add('status-error');
+                    break;
+                case 'testing':
+                    dot.classList.add('status-testing');
+                    break;
+                default:
+                    dot.classList.add('status-unknown');
+            }
+
+            textElement.textContent = text;
+        }
+
+        function showNotification(message, type = 'info') {
+            // Простая система уведомлений
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                background: var(--accent-${type === 'error' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'primary'});
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                max-width: 300px;
+                box-shadow: var(--shadow-primary);
+                transform: translateX(100%);
+                opacity: 0;
+                transition: all 0.3s ease;
+            `;
+
+            document.body.appendChild(notification);
+
+            // Анимация появления
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+                notification.style.opacity = '1';
+            }, 100);
+
+            // Удаление через 3 секунды
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Переменные для логов синхронизации
+        let currentLogPage = 1;
+        let currentLogFilters = {};
+
+        // Показать модальное окно логов синхронизации
+        function showSyncLogsModal() {
+            const modal = document.getElementById('syncLogsModal');
+            if (modal) {
+                modal.classList.add('show');
+                loadSyncLogs();
+                setupLogsModalHandlers();
+            }
+        }
+
+        // Скрыть модальное окно логов синхронизации
+        function hideSyncLogsModal() {
+            const modal = document.getElementById('syncLogsModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        }
+
+        // Настройка обработчиков для модального окна логов
+        function setupLogsModalHandlers() {
+            // Закрытие модального окна
+            const closeBtn = document.getElementById('closeSyncLogsModal');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', hideSyncLogsModal);
+            }
+
+            // Клик по overlay для закрытия
+            const modal = document.getElementById('syncLogsModal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        hideSyncLogsModal();
+                    }
+                });
+            }
+
+            // Фильтры
+            const statusFilter = document.getElementById('logStatusFilter');
+            const typeFilter = document.getElementById('logTypeFilter');
+            const refreshBtn = document.getElementById('btnRefreshLogs');
+
+            if (statusFilter) {
+                statusFilter.addEventListener('change', () => {
+                    currentLogPage = 1;
+                    loadSyncLogs();
+                });
+            }
+
+            if (typeFilter) {
+                typeFilter.addEventListener('change', () => {
+                    currentLogPage = 1;
+                    loadSyncLogs();
+                });
+            }
+
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    currentLogPage = 1;
+                    loadSyncLogs();
+                });
+            }
+
+            // Пагинация
+            const prevBtn = document.getElementById('btnPrevPage');
+            const nextBtn = document.getElementById('btnNextPage');
+
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    if (currentLogPage > 1) {
+                        currentLogPage--;
+                        loadSyncLogs();
+                    }
+                });
+            }
+
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    currentLogPage++;
+                    loadSyncLogs();
+                });
+            }
+        }
+
+        // Загрузка логов синхронизации
+        async function loadSyncLogs() {
+            try {
+                const statusFilter = document.getElementById('logStatusFilter');
+                const typeFilter = document.getElementById('logTypeFilter');
+                
+                const params = new URLSearchParams({
+                    page: currentLogPage,
+                    limit: 20
+                });
+
+                if (statusFilter && statusFilter.value) {
+                    params.append('status', statusFilter.value);
+                }
+
+                if (typeFilter && typeFilter.value) {
+                    params.append('syncType', typeFilter.value);
+                }
+
+                const response = await fetch(`/api/settings/sync-logs?${params}`, {
+                    headers: apiClient.getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    renderSyncLogs(result.data.logs, result.data.pagination);
+                } else {
+                    showNotification('Ошибка загрузки логов', 'error');
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки логов:', error);
+                showNotification('Ошибка загрузки логов', 'error');
+            }
+        }
+
+        // Отображение логов синхронизации
+        function renderSyncLogs(logs, pagination) {
+            const tbody = document.getElementById('logsTableBody');
+            if (!tbody) return;
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">Логи не найдены</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => {
+                const statusClass = log.status === 'success' ? 'success' : 
+                                  log.status === 'error' ? 'error' : 'warning';
+                const statusText = log.status === 'success' ? 'Успешно' : 
+                                 log.status === 'error' ? 'Ошибка' : 'Предупреждение';
+                
+                const date = new Date(log.created_at).toLocaleString('ru-RU');
+                
+                return `
+                    <tr>
+                        <td>${date}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${log.sync_type}</td>
+                        <td title="${log.details || ''}">${log.message}</td>
+                        <td>${log.records_processed || 0}</td>
+                        <td>${log.records_created || 0}</td>
+                        <td>${log.records_updated || 0}</td>
+                        <td>${log.records_skipped || 0}</td>
+                        <td>${log.execution_time_ms || 0}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Обновляем пагинацию
+            updateLogsPagination(pagination);
+        }
+
+        // Обновление пагинации логов
+        function updateLogsPagination(pagination) {
+            const prevBtn = document.getElementById('btnPrevPage');
+            const nextBtn = document.getElementById('btnNextPage');
+            const info = document.getElementById('paginationInfo');
+
+            if (prevBtn) {
+                prevBtn.disabled = pagination.page <= 1;
+            }
+
+            if (nextBtn) {
+                nextBtn.disabled = pagination.page >= pagination.pages;
+            }
+
+            if (info) {
+                info.textContent = `Страница ${pagination.page} из ${pagination.pages}`;
+            }
+        }
+    </script>
+
+    <!-- Модальное окно для логов синхронизации -->
+    <div class="overlay" id="syncLogsModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 class="modal-title">Лог синхронизации с Google Sheets</h3>
+                <button class="close" id="closeSyncLogsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Фильтры -->
+                <div class="log-filters">
+                    <div class="filter-group">
+                        <label for="logStatusFilter">Статус:</label>
+                        <select id="logStatusFilter">
+                            <option value="">Все</option>
+                            <option value="success">Успешно</option>
+                            <option value="error">Ошибка</option>
+                            <option value="warning">Предупреждение</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="logTypeFilter">Тип:</label>
+                        <select id="logTypeFilter">
+                            <option value="">Все</option>
+                            <option value="pvz">ПВЗ</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btnRefreshLogs">Обновить</button>
+                </div>
+
+                <!-- Таблица логов -->
+                <div class="logs-table-container">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Дата/Время</th>
+                                <th>Статус</th>
+                                <th>Тип</th>
+                                <th>Сообщение</th>
+                                <th>Обработано</th>
+                                <th>Создано</th>
+                                <th>Обновлено</th>
+                                <th>Пропущено</th>
+                                <th>Время (мс)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; color: var(--text-muted);">
+                                    Загрузка логов...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                <div class="logs-pagination">
+                    <button class="btn btn-sm" id="btnPrevPage" disabled>← Предыдущая</button>
+                    <span id="paginationInfo">Страница 1 из 1</span>
+                    <button class="btn btn-sm" id="btnNextPage" disabled>Следующая →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

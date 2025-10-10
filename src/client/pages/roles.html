@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Роли - ПВЗ Комментарии</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="comment-icon">💬</div>
+                <div>ПВЗ Комментарии</div>
+            </div>
+            <div class="nav">
+                <a href="/main" class="nav-item">Главная</a>
+                <a href="/users" class="nav-item">Пользователи</a>
+                <a href="/roles" class="nav-item active">Роли</a>
+                <a href="/pvz" class="nav-item">Список ПВЗ</a>
+                <a href="/settings" class="nav-item">Настройки</a>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name">Загрузка...</span>
+                    <span class="user-role"></span>
+                </div>
+                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
+            </div>
+        </nav>
+
+        <!-- Основное содержимое -->
+        <div class="content">
+            <div class="card">
+                <div class="toolbar">
+                    <div class="spacer"></div>
+                    <button class="btn" id="btnAddRole">Добавить роль</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Активна</th>
+                            <th>Регионы</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rolesTableBody">
+                        <!-- Roles will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления/редактирования роли -->
+    <div id="roleModal" class="overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="roleModalTitle">Добавить новую роль</h2>
+                <span class="close" id="closeRoleModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="roleName">Название роли</label>
+                    <input type="text" id="roleName" placeholder="Введите название роли" required>
+                </div>
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="roleIsActive">
+                    <label for="roleIsActive">Активна</label>
+                </div>
+                <div class="form-group">
+                    <label>Регионы</label>
+                    <div class="regions-input-group">
+                        <input type="text" id="regionSearchInput" placeholder="Поиск региона...">
+                        <button class="btn btn-secondary" id="addRegionBtn">Добавить</button>
+                        <div id="regionSuggestions" class="suggestions-list"></div>
+                    </div>
+                    <div id="selectedRegionsContainer" class="selected-regions-container">
+                        <!-- Selected regions will appear here as "clouds" -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelRoleSave">Отмена</button>
+                <button class="btn btn-primary" id="saveRoleBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/auth/auth.js"></script>
+    <script src="/modules/roles/roles.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Страница ролей загружена');
+            
+            // Инициализируем модуль ролей
+            await rolesModule.init();
+            console.log('✅ Модуль ролей инициализирован успешно');
+        });
+    </script>
+</body>
+</html>

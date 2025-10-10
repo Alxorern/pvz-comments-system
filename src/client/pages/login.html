@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в систему - ПВЗ Комментарии</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+</head>
+<body>
+    <div class="app login-page">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>
+                    <div class="comment-icon">💬</div>
+                    ПВЗ Комментарии
+                </h1>
+                <p>Войдите в систему для продолжения</p>
+            </div>
+            
+            <form class="login-form">
+                <div class="form-group">
+                    <label for="login">Логин</label>
+                    <input type="text" id="login" name="login" required autocomplete="username">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
+                </div>
+                
+                <button type="button" id="btnLogin" class="login-button">
+                    Войти в систему
+                </button>
+            </form>
+            
+            <div id="status" class="status"></div>
+            
+            <div class="footer">
+                <p>© 2025 ПВЗ Комментарии</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение модулей -->
+    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/auth/auth.js"></script>
+
+    <script>
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Инициализация модульной страницы входа');
+            
+            // Инициализируем модуль аутентификации
+            if (window.authModule) {
+                authModule.init();
+            } else {
+                console.error('❌ Модуль аутентификации не загружен');
+            }
+        });
+    </script>
+</body>
+</html>

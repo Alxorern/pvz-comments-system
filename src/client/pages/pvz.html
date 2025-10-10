@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список ПВЗ - ПВЗ Комментарии</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="comment-icon">💬</div>
+                <div>ПВЗ Комментарии</div>
+            </div>
+            <div class="nav">
+                <a href="/main" class="nav-item">Главная</a>
+                <a href="/users" class="nav-item">Пользователи</a>
+                <a href="/roles" class="nav-item">Роли</a>
+                <a href="/pvz" class="nav-item active">Список ПВЗ</a>
+                <a href="/settings" class="nav-item">Настройки</a>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name">Загрузка...</span>
+                    <span class="user-role"></span>
+                </div>
+                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
+            </div>
+        </nav>
+
+        <!-- Основной контент -->
+        <div class="content">
+            <div class="page-header">
+                <h2>Список ПВЗ</h2>
+                <div class="page-actions">
+                    <button class="btn btn-secondary" id="btnTableSettings">
+                        <span>⚙️</span> Настройки таблицы
+                    </button>
+                    <button class="btn btn-primary" id="btnRefresh">
+                        <span>🔄</span> Обновить
+                    </button>
+                </div>
+            </div>
+
+            <!-- Фильтры -->
+            <div class="filters-container">
+                <div class="filters-row">
+                    <div class="filter-group filter-pvz-id">
+                        <label for="pvzIdFilter">ID ПВЗ:</label>
+                        <input type="text" id="pvzIdFilter" placeholder="Поиск по ID...">
+                    </div>
+                    
+                    <div class="filter-group filter-region">
+                        <label for="regionSearchInput">Регион:</label>
+                        <input type="text" id="regionSearchInput" placeholder="Поиск региона...">
+                        <div id="regionSuggestions" class="suggestions-list"></div>
+                    </div>
+                    
+                    <div class="filter-group filter-address">
+                        <label for="addressFilter">Адрес:</label>
+                        <input type="text" id="addressFilter" placeholder="Поиск по адресу...">
+                    </div>
+                    
+                    <div class="filter-group filter-company">
+                        <label for="companyFilter">Компания:</label>
+                        <input type="text" id="companyFilter" placeholder="Поиск по компании...">
+                    </div>
+                    
+                    <div class="filter-actions">
+                        <button class="btn btn-secondary" id="btnClearFilters">Сбросить фильтры</button>
+                        <button class="btn btn-primary" id="btnExport">Экспорт</button>
+                    </div>
+                </div>
+                
+                <div id="selectedRegions" class="selected-regions"></div>
+            </div>
+
+            <!-- Таблица -->
+            <div class="table-container">
+                <table class="pvz-table" id="pvzTable">
+                        <thead id="tableHead">
+                            <tr>
+                                <th data-column="pvz_id" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Внешний<br>ID ПВЗ</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="region" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Регион</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="address" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Адрес</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="service_name" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Наименование<br>сервиса</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="status_date" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Дата<br>статуса</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="status_name" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Наименование<br>статуса</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="company_name" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Наименование<br>компании</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="transaction_date" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Дата<br>транзакции</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="transaction_amount" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Сумма транзакции,<br>руб</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="phone" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Телефон</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="postal_code" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Индекс</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="fitting_room" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Примерочная</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="last_comment" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Комментарий</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="comment_author" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Кто<br>комментировал</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                                <th data-column="comment_date" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Когда<br>комментировал</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="15" style="text-align: center; color: var(--text-muted);">
+                                    Загрузка данных...
+                                </td>
+                            </tr>
+                        </tbody>
+                </table>
+            </div>
+
+            <!-- Пагинация -->
+            <div class="pagination">
+                <div class="pagination-info">
+                    <span id="paginationInfo">Показано 1-20 из 100</span>
+                </div>
+                <div class="pagination-controls">
+                    <button class="pagination-btn" id="btnFirstPage" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6zM6 6h2v12H6z"/>
+                        </svg>
+                    </button>
+                    <button class="pagination-btn" id="btnPrevPage" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                        </svg>
+                    </button>
+                    <div class="pagination-pages" id="paginationPages">
+                        <button class="pagination-page active">1</button>
+                    </div>
+                    <button class="pagination-btn" id="btnNextPage" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                        </svg>
+                    </button>
+                    <button class="pagination-btn" id="btnLastPage" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно настроек таблицы -->
+    <div class="overlay" id="tableSettingsModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 class="modal-title">Настройки таблицы</h3>
+                <button class="close" id="closeTableSettings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h4>Видимые столбцы</h4>
+                    <div class="column-settings" id="columnSettings">
+                        <!-- Настройки столбцов будут добавлены динамически -->
+                    </div>
+                </div>
+                <div class="settings-actions">
+                    <button class="btn btn-secondary" id="btnResetSettings">Вид по умолчанию</button>
+                    <button class="btn btn-primary" id="btnSaveSettings">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно комментариев -->
+    <div id="commentsModal" class="comments-modal">
+      <div class="comments-modal-content">
+        <div class="comments-modal-header">
+          <h3 class="comments-modal-title">Комментарии</h3>
+          <button class="comments-modal-close" id="closeCommentsModal">&times;</button>
+        </div>
+        <div class="comments-modal-body">
+          <form class="comments-form" id="commentsForm">
+            <div class="comments-form-group">
+              <label class="comments-form-label" for="newComment">Новый комментарий:</label>
+              <textarea 
+                class="comments-form-textarea" 
+                id="newComment" 
+                name="comment" 
+                placeholder="Введите ваш комментарий..."
+                required
+              ></textarea>
+            </div>
+            <div class="comments-form-actions">
+              <button type="button" class="btn btn-secondary" id="cancelComment">Отмена</button>
+              <button type="submit" class="btn btn-primary" id="saveComment">Сохранить</button>
+            </div>
+          </form>
+          
+          <div class="comments-list">
+            <div class="comments-list-header">История комментариев:</div>
+            <div class="comments-list-container" id="commentsList">
+              <!-- Комментарии будут загружены динамически -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Подключение модулей -->
+    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/auth/auth.js"></script>
+    <script src="/modules/pvz/pvz.js"></script>
+
+    <script>
+        // Инициализация приложения
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Страница ПВЗ загружена');
+
+            // Проверяем аутентификацию
+            if (!apiClient.checkAuthAndRedirect()) {
+                return;
+            }
+
+            // Инициализируем навигацию
+            await window.navigationModule.init();
+
+            // Инициализируем модуль ПВЗ
+            if (window.pvzModule) {
+                await window.pvzModule.init();
+            }
+
+            console.log('📄 Страница ПВЗ готова к работе');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+/**
+ * Модуль управления пользователями
+ */
+class UsersModule {
+  constructor() {
+    this.editingUserId = null;
+    this.cache = {
+      users: [],
+      roles: [],
+      lastCreatedUserId: null
+    };
+  }
+
+  /**
+   * Инициализация модуля
+   */
+  async init() {
+    this.setupEventListeners();
+    await this.loadData();
+    this.renderUsers();
+  }
+
+  /**
+   * Настройка обработчиков событий
+   */
+  setupEventListeners() {
+    // Кнопки модальных окон
+    const btnAddUser = document.getElementById('btnAddUser');
+    if (btnAddUser) {
+      btnAddUser.addEventListener('click', () => this.showAddUserModal());
+    }
+
+    const btnCancelAddUser = document.getElementById('btnCancelAddUser');
+    if (btnCancelAddUser) {
+      btnCancelAddUser.addEventListener('click', () => this.hideAddUserModal());
+    }
+
+    const btnSubmitAddUser = document.getElementById('btnSubmitAddUser');
+    if (btnSubmitAddUser) {
+      btnSubmitAddUser.addEventListener('click', () => this.submitAddUser());
+    }
+
+    const btnCancelEditUser = document.getElementById('btnCancelEditUser');
+    if (btnCancelEditUser) {
+      btnCancelEditUser.addEventListener('click', () => this.hideEditUserModal());
+    }
+
+    const btnSubmitEditUser = document.getElementById('btnSubmitEditUser');
+    if (btnSubmitEditUser) {
+      btnSubmitEditUser.addEventListener('click', () => this.submitEditUser());
+    }
+
+    // Закрытие модальных окон по клику на overlay
+    const overlayAddUser = document.getElementById('overlayAddUser');
+    if (overlayAddUser) {
+      overlayAddUser.addEventListener('click', (e) => {
+        if (e.target === overlayAddUser) {
+          this.hideAddUserModal();
+        }
+      });
+    }
+
+    const overlayEditUser = document.getElementById('overlayEditUser');
+    if (overlayEditUser) {
+      overlayEditUser.addEventListener('click', (e) => {
+        if (e.target === overlayEditUser) {
+          this.hideEditUserModal();
+        }
+      });
+    }
+  }
+
+  /**
+   * Загрузка данных с сервера
+   */
+  async loadData() {
+    try {
+      console.log('🔄 Начинаем загрузку данных пользователей...');
+      console.log('🔍 apiClient доступен:', !!window.apiClient);
+      console.log('🔍 utils доступен:', !!window.utils);
+      
+      // Загружаем пользователей
+      console.log('📥 Загружаем пользователей...');
+      const usersResponse = await window.apiClient.get('/api/users');
+      console.log('📥 Ответ API пользователей:', usersResponse);
+      
+      if (usersResponse && usersResponse.success) {
+        this.cache.users = usersResponse.data;
+        console.log('✅ Загружено пользователей:', usersResponse.data.length);
+      } else {
+        console.error('❌ Ошибка загрузки пользователей:', usersResponse);
+      }
+
+      // Загружаем роли
+      console.log('📥 Загружаем роли...');
+      const rolesResponse = await window.apiClient.get('/api/roles');
+      console.log('📥 Ответ API ролей:', rolesResponse);
+      
+      if (rolesResponse && rolesResponse.success) {
+        this.cache.roles = rolesResponse.data;
+        console.log('✅ Загружено ролей:', rolesResponse.data.length);
+        this.populateRoles();
+      } else {
+        console.error('❌ Ошибка загрузки ролей:', rolesResponse);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки данных пользователей:', error);
+      if (window.utils) {
+        window.utils.showNotification('Ошибка загрузки данных', 'error');
+      }
+    }
+  }
+
+  /**
+   * Заполнение выпадающих списков ролей
+   */
+  populateRoles() {
+    const addSelect = document.getElementById('addUserRole');
+    if (addSelect) {
+      addSelect.innerHTML = '<option value="">Выберите роль</option>';
+      this.cache.roles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.name;
+        option.textContent = role.name;
+        addSelect.appendChild(option);
+      });
+    }
+    
+    const editSelect = document.getElementById('editUserRole');
+    if (editSelect) {
+      editSelect.innerHTML = '<option value="">Выберите роль</option>';
+      this.cache.roles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.name;
+        option.textContent = role.name;
+        editSelect.appendChild(option);
+      });
+    }
+  }
+
+  /**
+   * Отображение списка пользователей
+   */
+  renderUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+
+    this.cache.users.forEach(user => {
+      const row = document.createElement('tr');
+      row.dataset.id = user.id;
+      row.dataset.created = user.created;
+      
+      row.innerHTML = `
+        <td>${user.user_id}</td>
+        <td>${user.login}</td>
+        <td>${user.full_name}</td>
+        <td>${user.role}</td>
+        <td>${user.created ? (window.utils ? window.utils.formatDate(user.created) : user.created) : ''}</td>
+        <td>${user.addwho || ''}</td>
+        <td>
+          <button class="btn small" onclick="usersModule.showEditUserModal(${user.id})" data-user-id="${user.id}">Редактировать</button>
+        </td>
+      `;
+
+      // Подсветка новой записи
+      if (this.cache.lastCreatedUserId && user.id === this.cache.lastCreatedUserId) {
+        row.classList.add('highlight');
+      }
+
+      tbody.appendChild(row);
+    });
+
+    // Убираем подсветку через 5 секунд
+    if (this.cache.lastCreatedUserId) {
+      setTimeout(() => {
+        this.cache.lastCreatedUserId = null;
+        const highlightedRows = tbody.querySelectorAll('.highlight');
+        highlightedRows.forEach(row => row.classList.remove('highlight'));
+      }, 5000);
+    }
+  }
+
+  /**
+   * Показать модальное окно создания пользователя
+   */
+  showAddUserModal() {
+    const overlay = document.getElementById('overlayAddUser');
+    if (overlay) {
+      overlay.classList.add('show');
+      this.clearAddUserForm();
+    }
+  }
+
+  /**
+   * Скрыть модальное окно создания пользователя
+   */
+  hideAddUserModal() {
+    const overlay = document.getElementById('overlayAddUser');
+    if (overlay) {
+      overlay.classList.remove('show');
+    }
+  }
+
+  /**
+   * Показать модальное окно редактирования пользователя
+   */
+  showEditUserModal(userId) {
+    const overlay = document.getElementById('overlayEditUser');
+    if (overlay) {
+      overlay.classList.add('show');
+      
+      console.log('🔍 Поиск пользователя для редактирования:', userId);
+      
+      const user = this.cache.users.find(u => u.id == userId);
+      if (user) {
+        console.log('✅ Найден пользователь для редактирования:', user);
+        document.getElementById('editUserFullName').value = user.full_name || '';
+        document.getElementById('editUserLogin').value = user.login || '';
+        document.getElementById('editUserPassword').value = '';
+        document.getElementById('editUserRole').value = user.role || '';
+        
+        this.editingUserId = userId;
+      } else {
+        console.error('❌ Пользователь не найден в кэше:', userId);
+        if (window.utils) {
+          window.utils.showNotification('Пользователь не найден', 'error');
+        }
+      }
+    }
+  }
+
+  /**
+   * Скрыть модальное окно редактирования пользователя
+   */
+  hideEditUserModal() {
+    const overlay = document.getElementById('overlayEditUser');
+    if (overlay) {
+      overlay.classList.remove('show');
+    }
+    this.editingUserId = null;
+  }
+
+  /**
+   * Очистить форму создания пользователя
+   */
+  clearAddUserForm() {
+    const fields = ['addUserFullName', 'addUserLogin', 'addUserPassword', 'addUserRole'];
+    fields.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.value = '';
+      }
+    });
+  }
+
+  /**
+   * Создание нового пользователя
+   */
+  async submitAddUser() {
+    const fullNameEl = document.getElementById('addUserFullName');
+    const loginEl = document.getElementById('addUserLogin');
+    const passwordEl = document.getElementById('addUserPassword');
+    const roleEl = document.getElementById('addUserRole');
+    
+    if (!fullNameEl || !loginEl || !passwordEl || !roleEl) {
+      if (window.utils) {
+        window.utils.showNotification('Не все поля формы пользователя найдены', 'error');
+      }
+      return;
+    }
+    
+    const fullName = fullNameEl.value.trim();
+    const login = loginEl.value.trim();
+    const password = passwordEl.value.trim();
+    const role = roleEl.value;
+
+    if (!fullName || !login || !password || !role) {
+      if (window.utils) {
+        window.utils.showNotification('Заполните все поля', 'error');
+      }
+      return;
+    }
+
+    const userData = {
+      full_name: fullName,
+      login: login,
+      password: password,
+      role: role
+    };
+
+    try {
+      console.log('🔄 Создание нового пользователя:', { 
+        userData: { ...userData, password: '[HIDDEN]' } 
+      });
+      
+      const result = await window.apiClient.post('/api/users', userData);
+      
+      if (result && result.success) {
+        const newUser = {
+          id: result.id,
+          user_id: result.id,
+          ...userData,
+          created: new Date().toISOString(),
+          addwho: 'admin'
+        };
+        
+        // Добавляем в начало списка
+        this.cache.users.unshift(newUser);
+        this.cache.lastCreatedUserId = newUser.id;
+        
+        this.hideAddUserModal();
+        this.renderUsers();
+        
+        if (window.utils) {
+          window.utils.showNotification('Пользователь создан успешно', 'success');
+        }
+      } else {
+        if (window.utils) {
+          window.utils.showNotification('Ошибка создания пользователя', 'error');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Ошибка создания пользователя:', error);
+      if (window.utils) {
+        window.utils.showNotification('Ошибка соединения: ' + error.message, 'error');
+      }
+    }
+  }
+
+  /**
+   * Редактирование пользователя
+   */
+  async submitEditUser() {
+    const fullNameEl = document.getElementById('editUserFullName');
+    const loginEl = document.getElementById('editUserLogin');
+    const passwordEl = document.getElementById('editUserPassword');
+    const roleEl = document.getElementById('editUserRole');
+    
+    if (!fullNameEl || !loginEl || !passwordEl || !roleEl) {
+      if (window.utils) {
+        window.utils.showNotification('Не все поля формы пользователя найдены', 'error');
+      }
+      return;
+    }
+    
+    const fullName = fullNameEl.value.trim();
+    const login = loginEl.value.trim();
+    const password = passwordEl.value.trim();
+    const role = roleEl.value;
+
+    if (!fullName || !login || !role) {
+      if (window.utils) {
+        window.utils.showNotification('Заполните ФИО, логин и роль', 'error');
+      }
+      return;
+    }
+
+    const userData = {
+      full_name: fullName,
+      login: login,
+      password: password,
+      role: role
+    };
+
+    try {
+      console.log('🔄 Редактирование пользователя:', { 
+        editingUserId: this.editingUserId, 
+        userData: { ...userData, password: userData.password ? '[HIDDEN]' : '[EMPTY]' } 
+      });
+      
+      const result = await window.apiClient.put(`/api/users/${this.editingUserId}`, userData);
+      
+      if (result && result.success) {
+        // Обновляем пользователя в кэше
+        const userIndex = this.cache.users.findIndex(u => u.id == this.editingUserId);
+        if (userIndex !== -1) {
+          this.cache.users[userIndex] = {
+            ...this.cache.users[userIndex],
+            full_name: userData.full_name,
+            login: userData.login,
+            role: userData.role
+          };
+        }
+        
+        this.hideEditUserModal();
+        this.renderUsers();
+        
+        if (window.utils) {
+          window.utils.showNotification('Пользователь обновлен успешно', 'success');
+        }
+      } else {
+        if (window.utils) {
+          window.utils.showNotification('Ошибка обновления пользователя', 'error');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Ошибка редактирования пользователя:', error);
+      if (window.utils) {
+        window.utils.showNotification('Ошибка соединения: ' + error.message, 'error');
+      }
+    }
+  }
+
+  /**
+   * Обновление данных пользователей
+   */
+  async refreshUsers() {
+    await this.loadData();
+    this.renderUsers();
+  }
+}
+
+// Создаем глобальный экземпляр модуля пользователей
+window.usersModule = new UsersModule();

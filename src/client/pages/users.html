@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пользователи - ПВЗ Комментарии</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="comment-icon">💬</div>
+                <div>ПВЗ Комментарии</div>
+            </div>
+            <div class="nav">
+                <a href="/main" class="nav-item">Главная</a>
+                <a href="/users" class="nav-item active">Пользователи</a>
+                <a href="/roles" class="nav-item">Роли</a>
+                <a href="/pvz" class="nav-item">Список ПВЗ</a>
+                <a href="/settings" class="nav-item">Настройки</a>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name">Загрузка...</span>
+                    <span class="user-role"></span>
+                </div>
+                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
+            </div>
+        </nav>
+
+        <!-- Основное содержимое -->
+        <div class="content">
+            <div class="card">
+                <div class="toolbar">
+                    <div class="spacer"></div>
+                    <button class="btn" id="btnAddUser">Добавить пользователя</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Логин</th>
+                            <th>ФИО</th>
+                            <th>Роль</th>
+                            <th>Создан</th>
+                            <th>Создал</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- Данные будут добавлены через JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания пользователя -->
+    <div class="overlay" id="overlayAddUser">
+        <div class="modal">
+            <h3>Добавить пользователя</h3>
+            <div class="modal-grid">
+                <div class="field">
+                    <label class="label">ФИО</label>
+                    <input type="text" id="addUserFullName" class="input" placeholder="Введите ФИО" />
+                </div>
+                <div class="field">
+                    <label class="label">Логин</label>
+                    <input type="text" id="addUserLogin" class="input" placeholder="Введите логин" />
+                </div>
+                <div class="field">
+                    <label class="label">Пароль</label>
+                    <input type="password" id="addUserPassword" class="input" placeholder="Введите пароль" />
+                </div>
+                <div class="field">
+                    <label class="label">Роль</label>
+                    <select id="addUserRole" class="input">
+                        <option value="">Выберите роль</option>
+                    </select>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn secondary" id="btnCancelAddUser">Отмена</button>
+                <button class="btn" id="btnSubmitAddUser">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования пользователя -->
+    <div class="overlay" id="overlayEditUser">
+        <div class="modal">
+            <h3>Редактировать пользователя</h3>
+            <div class="modal-grid">
+                <div class="field">
+                    <label class="label">ФИО</label>
+                    <input type="text" id="editUserFullName" class="input" placeholder="Введите ФИО" />
+                </div>
+                <div class="field">
+                    <label class="label">Логин</label>
+                    <input type="text" id="editUserLogin" class="input" placeholder="Введите логин" />
+                </div>
+                <div class="field">
+                    <label class="label">Новый пароль</label>
+                    <input type="password" id="editUserPassword" class="input" placeholder="Оставьте пустым, чтобы не изменять" />
+                </div>
+                <div class="field">
+                    <label class="label">Роль</label>
+                    <select id="editUserRole" class="input">
+                        <option value="">Выберите роль</option>
+                    </select>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn secondary" id="btnCancelEditUser">Отмена</button>
+                <button class="btn" id="btnSubmitEditUser">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение модулей -->
+    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/auth/auth.js"></script>
+    <script src="/modules/users/users.js"></script>
+
+    <script>
+        // Инициализация страницы пользователей
+        async function initializePage() {
+            console.log('👥 Инициализация страницы пользователей');
+            
+            try {
+                await usersModule.init();
+                console.log('✅ Модуль пользователей инициализирован успешно');
+            } catch (error) {
+                console.error('❌ Ошибка инициализации модуля пользователей:', error);
+                utils.showNotification('Ошибка инициализации страницы пользователей', 'error');
+            }
+        }
+
+        // Общая инициализация
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Инициализация страницы: users');
+
+            // Проверяем аутентификацию
+            if (!apiClient.checkAuthAndRedirect()) {
+                return;
+            }
+
+            // Отображаем информацию о пользователе
+            const user = authModule.getCurrentUser();
+            if (user) {
+                document.getElementById('userInfo').textContent = `${user.full_name} (${user.role})`;
+            }
+
+            // Настраиваем кнопку выхода
+            // Кнопка выхода настраивается в модуле навигации
+
+            // Инициализация специфичного для страницы кода
+            await initializePage();
+        });
+    </script>
+</body>
+</html>

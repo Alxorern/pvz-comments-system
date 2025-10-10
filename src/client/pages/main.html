@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПВЗ Комментарии - Главная</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <div class="sidebar">
+            <div class="brand">
+                <div class="comment-icon">💬</div>
+                ПВЗ Комментарии
+            </div>
+            <div class="nav">
+                <a href="/users" class="nav-item">Пользователи</a>
+                <a href="/roles" class="nav-item">Роли</a>
+                <a href="/pvz" class="nav-item">Список ПВЗ</a>
+                <a href="/settings" class="nav-item">Настройки</a>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
+                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
+            </div>
+        </div>
+
+        <!-- Основное содержимое -->
+        <div class="content">
+            <div class="card">
+                <div class="toolbar">
+                    <div class="spacer"></div>
+                    <span id="userInfo" class="user-info">Перенаправление...</span>
+                </div>
+                <p class="welcome-text">
+                    Добро пожаловать в систему! Используйте навигацию для перехода к нужному разделу.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение модулей -->
+    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/auth/auth.js"></script>
+
+    <script>
+        // Инициализация приложения
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Главная страница загружена');
+
+            // Проверяем аутентификацию
+            if (!apiClient.checkAuthAndRedirect()) {
+                return;
+            }
+
+            // Инициализируем навигацию
+            await window.navigationModule.init();
+            
+            // Отображаем информацию о пользователе
+            const user = authModule.getCurrentUser();
+            if (user) {
+                document.getElementById('userInfo').textContent = `${user.full_name} (${user.role})`;
+            }
+
+            // Кнопка выхода настраивается в модуле навигации
+
+            console.log('📄 Главная страница готова к работе');
+        });
+    </script>
+</body>
+</html>
