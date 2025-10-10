@@ -26,7 +26,6 @@ async function createTables(db) {
                 full_name TEXT,
                 login TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'user',
                 role_id INTEGER,
                 addwho TEXT DEFAULT 'admin',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -153,11 +152,11 @@ async function createAdminUser(db) {
         const hashedPassword = bcrypt.hashSync(adminPassword, 10);
         
         const sql = `
-            INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role, role_id, addwho) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role_id, addwho) 
+            VALUES (?, ?, ?, ?, ?, ?)
         `;
         
-        db.run(sql, [1, 'Administrator', adminUsername, hashedPassword, 'admin', 1, 'system'], (err) => {
+        db.run(sql, [1, 'Administrator', adminUsername, hashedPassword, 1, 'system'], (err) => {
             if (err) {
                 console.error('❌ Ошибка создания admin:', err);
                 reject(err);
