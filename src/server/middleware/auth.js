@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 // JWT секретный ключ (в продакшене должен быть в переменных окружения)
-const JWT_SECRET = 'billing-system-secret-key-2025';
+const JWT_SECRET = process.env.JWT_SECRET || 'billing-system-secret-key-2025';
 const JWT_EXPIRES_IN = '12h';
 
 /**
@@ -91,6 +91,6 @@ module.exports = {
   authenticateToken,
   authenticatePage,
   generateToken,
-  JWT_SECRET,
+  JWT_SECRET: process.env.JWT_SECRET || 'billing-system-secret-key-2025',
   JWT_EXPIRES_IN
 };
