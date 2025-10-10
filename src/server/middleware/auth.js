@@ -77,7 +77,7 @@ function authenticatePage(req, res, next) {
 function generateToken(user) {
   return jwt.sign(
     { 
-      id: user.id,
+      id: user.user_id,  // Используем user_id вместо id
       login: user.login, 
       role: user.role, 
       full_name: user.full_name 
