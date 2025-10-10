@@ -124,6 +124,25 @@ async function createTables(db) {
     });
 }
 
+async function createAdminRole(db) {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            INSERT OR REPLACE INTO roles (id, name, description, is_active) 
+            VALUES (?, ?, ?, ?)
+        `;
+        
+        db.run(sql, [1, 'admin', 'Administrator role with full access', 1], (err) => {
+            if (err) {
+                console.error('❌ Ошибка создания роли admin:', err);
+                reject(err);
+                return;
+            }
+            console.log('✅ Роль admin создана');
+            resolve();
+        });
+    });
+}
+
 async function createAdminUser(db) {
     return new Promise((resolve, reject) => {
         const bcrypt = require('bcrypt');
@@ -134,11 +153,11 @@ async function createAdminUser(db) {
         const hashedPassword = bcrypt.hashSync(adminPassword, 10);
         
         const sql = `
-            INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role, addwho) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role, role_id, addwho) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
         
-        db.run(sql, [1, 'Administrator', adminUsername, hashedPassword, 'admin', 'system'], (err) => {
+        db.run(sql, [1, 'Administrator', adminUsername, hashedPassword, 'admin', 1, 'system'], (err) => {
             if (err) {
                 console.error('❌ Ошибка создания admin:', err);
                 reject(err);
@@ -156,6 +175,7 @@ async function main() {
         
         const db = await initDatabase();
         await createTables(db);
+        await createAdminRole(db);
         await createAdminUser(db);
         
         db.close((err) => {

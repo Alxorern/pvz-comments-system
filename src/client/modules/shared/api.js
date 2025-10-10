@@ -67,20 +67,40 @@ class ApiClient {
   /**
    * Обрабатывает ошибки аутентификации
    */
-  handleAuthError(response) {
+  async handleAuthError(response) {
     const currentPath = window.location.pathname;
     
     if (response.status === 401 || response.status === 403) {
-      // Токен невалиден или истек
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      
-      // Перенаправляем только если мы не на странице входа
-      if (currentPath !== '/' && currentPath !== '/index.html') {
-        const returnUrl = encodeURIComponent(currentPath);
-        window.location.href = `/?return=${returnUrl}`;
+      // Проверяем, действительно ли это ошибка JWT токена
+      try {
+        const errorData = await response.json();
+        console.log('🔍 Ошибка API:', errorData);
+        
+        // Удаляем токен только если это действительно JWT ошибка
+        if (errorData.error && (
+          errorData.error.includes('jwt') || 
+          errorData.error.includes('token') ||
+          errorData.error.includes('expired') ||
+          errorData.error.includes('malformed')
+        )) {
+          console.log('🔑 Удаляем токен из-за JWT ошибки:', errorData.error);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          
+          // Перенаправляем только если мы не на странице входа
+          if (currentPath !== '/' && currentPath !== '/index.html') {
+            const returnUrl = encodeURIComponent(currentPath);
+            window.location.href = `/?return=${returnUrl}`;
+          }
+          return true;
+        } else {
+          console.log('⚠️ 403 ошибка, но не JWT - оставляем токен');
+          return false;
+        }
+      } catch (e) {
+        console.log('⚠️ Не удалось прочитать ошибку, оставляем токен');
+        return false;
       }
-      return true;
     }
     return false;
   }
@@ -96,7 +116,7 @@ class ApiClient {
       });
 
 
-      if (this.handleAuthError(response)) {
+      if (await this.handleAuthError(response)) {
         return null;
       }
 
@@ -136,7 +156,7 @@ class ApiClient {
         statusText: response.statusText
       });
 
-      if (this.handleAuthError(response)) {
+      if (await this.handleAuthError(response)) {
         return null;
       }
 
@@ -170,7 +190,7 @@ class ApiClient {
         body: JSON.stringify(data)
       });
 
-      if (this.handleAuthError(response)) {
+      if (await this.handleAuthError(response)) {
         return null;
       }
 
@@ -195,7 +215,7 @@ class ApiClient {
         headers: this.getAuthHeaders()
       });
 
-      if (this.handleAuthError(response)) {
+      if (await this.handleAuthError(response)) {
         return null;
       }
 

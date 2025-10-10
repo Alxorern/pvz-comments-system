@@ -15,7 +15,7 @@ function checkRole(allowedRoles = []) {
       // Получаем роль пользователя
       const userRole = await new Promise((resolve, reject) => {
         db.get(
-          'SELECT r.name as role_name, r.is_active FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?',
+          'SELECT r.name as role_name, r.is_active FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.user_id = ?',
           [req.user.id],
           (err, row) => {
             if (err) reject(err);
@@ -78,7 +78,7 @@ async function getUserRegions(userId) {
          JOIN roles r ON u.role_id = r.id 
          JOIN role_regions rr ON r.id = rr.role_id 
          JOIN regions reg ON rr.region_id = reg.id 
-         WHERE u.id = ? AND r.is_active = 1`,
+         WHERE u.user_id = ? AND r.is_active = 1`,
         [userId],
         (err, rows) => {
           if (err) reject(err);
