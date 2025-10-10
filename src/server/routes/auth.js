@@ -43,7 +43,6 @@ router.post('/', async (req, res) => {
           user: { 
             id: row.user_id,
             login: row.login, 
-            role: row.role, 
             full_name: row.full_name 
           } 
         });

@@ -79,7 +79,6 @@ function generateToken(user) {
     { 
       id: user.user_id,  // Используем user_id вместо id
       login: user.login, 
-      role: user.role, 
       full_name: user.full_name 
     },
     JWT_SECRET,
