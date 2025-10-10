@@ -13,8 +13,39 @@ app.listen(PORT, '0.0.0.0', () => {
   // Инициализируем основное подключение к БД
   console.log('🗄️ Инициализация основного подключения к БД...');
   const database = require('./src/server/database/db');
-  database.connect().then(() => {
+  database.connect().then(async () => {
     console.log('✅ Основное подключение к БД установлено');
+    
+    // Проверяем, нужно ли инициализировать БД
+    const db = database.getDb();
+    if (db) {
+      try {
+        // Проверяем существование таблицы users
+        const result = await new Promise((resolve, reject) => {
+          db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='users'", (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+        
+        if (!result) {
+          console.log('🔧 Таблица users не найдена, инициализируем БД...');
+          // Запускаем скрипт инициализации
+          const { exec } = require('child_process');
+          exec('node init-db.js', (error, stdout, stderr) => {
+            if (error) {
+              console.error('❌ Ошибка инициализации БД:', error);
+            } else {
+              console.log('✅ БД инициализирована:', stdout);
+            }
+          });
+        } else {
+          console.log('✅ БД уже инициализирована');
+        }
+      } catch (err) {
+        console.error('❌ Ошибка проверки БД:', err);
+      }
+    }
   }).catch(err => {
     console.error('❌ Ошибка основного подключения к БД:', err);
   });
