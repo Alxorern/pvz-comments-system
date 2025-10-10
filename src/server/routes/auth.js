@@ -94,7 +94,7 @@ router.get('/user-info', authenticateToken, requireAnyRole, (req, res) => {
     
     // Получаем информацию о пользователе с его ролью
     db.get(
-      `SELECT u.id, u.login, u.full_name, r.name as role_name, r.is_active as role_active
+      `SELECT u.id, u.username, u.full_name, r.name as role_name, r.is_active as role_active
        FROM users u 
        LEFT JOIN roles r ON u.role_id = r.id 
        WHERE u.id = ?`,
