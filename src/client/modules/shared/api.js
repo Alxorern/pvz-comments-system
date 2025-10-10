@@ -4,6 +4,24 @@
 class ApiClient {
   constructor() {
     this.baseUrl = '';
+    this.initializeTokenFromUrl();
+  }
+
+  /**
+   * Инициализирует токен из URL параметров
+   */
+  initializeTokenFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    
+    if (token && !this.getAuthToken()) {
+      console.log('🔑 Сохраняем токен из URL в localStorage');
+      localStorage.setItem('authToken', token);
+      
+      // Очищаем URL от токена
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
   }
 
   /**
