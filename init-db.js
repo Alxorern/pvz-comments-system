@@ -33,7 +33,7 @@ async function createTables(db) {
                 FOREIGN KEY (role_id) REFERENCES roles (id)
             );
             
-            CREATE TABLE IF NOT EXISTS settings (
+            CREATE TABLE settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -123,6 +123,76 @@ async function createTables(db) {
     });
 }
 
+async function migrateDatabase(db) {
+    return new Promise((resolve, reject) => {
+        console.log('🔧 Проверяем необходимость миграции...');
+        
+        // Проверяем, есть ли столбец role в таблице users
+        db.get("PRAGMA table_info(users)", (err, rows) => {
+            if (err) {
+                console.error('❌ Ошибка проверки структуры таблицы:', err);
+                reject(err);
+                return;
+            }
+            
+            db.all("PRAGMA table_info(users)", (err, columns) => {
+                if (err) {
+                    console.error('❌ Ошибка получения информации о таблице:', err);
+                    reject(err);
+                    return;
+                }
+                
+                const hasRoleColumn = columns.some(col => col.name === 'role');
+                
+                if (hasRoleColumn) {
+                    console.log('🔧 Найден столбец role, выполняем миграцию...');
+                    
+                    // SQLite не поддерживает DROP COLUMN, поэтому создаем новую таблицу
+                    const migrationSQL = `
+                        -- Создаем временную таблицу с правильной структурой
+                        CREATE TABLE users_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER UNIQUE NOT NULL,
+                            full_name TEXT,
+                            login TEXT UNIQUE NOT NULL,
+                            password_hash TEXT NOT NULL,
+                            role_id INTEGER,
+                            addwho TEXT DEFAULT 'admin',
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (role_id) REFERENCES roles (id)
+                        );
+                        
+                        -- Копируем данные из старой таблицы (исключая столбец role)
+                        INSERT INTO users_new (id, user_id, full_name, login, password_hash, role_id, addwho, created_at, updated_at)
+                        SELECT id, user_id, full_name, login, password_hash, role_id, addwho, created_at, updated_at
+                        FROM users;
+                        
+                        -- Удаляем старую таблицу
+                        DROP TABLE users;
+                        
+                        -- Переименовываем новую таблицу
+                        ALTER TABLE users_new RENAME TO users;
+                    `;
+                    
+                    db.exec(migrationSQL, (err) => {
+                        if (err) {
+                            console.error('❌ Ошибка миграции:', err);
+                            reject(err);
+                            return;
+                        }
+                        console.log('✅ Миграция завершена успешно');
+                        resolve();
+                    });
+                } else {
+                    console.log('✅ Миграция не требуется');
+                    resolve();
+                }
+            });
+        });
+    });
+}
+
 async function createAdminRole(db) {
     return new Promise((resolve, reject) => {
         const sql = `
@@ -174,6 +244,7 @@ async function main() {
         
         const db = await initDatabase();
         await createTables(db);
+        await migrateDatabase(db);
         await createAdminRole(db);
         await createAdminUser(db);
         
