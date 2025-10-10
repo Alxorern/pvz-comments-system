@@ -28,7 +28,9 @@ class ApiClient {
    * Получает токен аутентификации из localStorage
    */
   getAuthToken() {
-    return localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken');
+    console.log('🔑 getAuthToken - токен из localStorage:', token ? token.substring(0, 20) + '...' : 'null');
+    return token;
   }
 
   /**
@@ -36,6 +38,7 @@ class ApiClient {
    */
   getAuthHeaders() {
     const token = this.getAuthToken();
+    console.log('🔑 getAuthHeaders - токен:', token ? token.substring(0, 20) + '...' : 'null');
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
