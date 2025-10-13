@@ -195,31 +195,52 @@ async function migrateDatabase(db) {
 
 async function createAdminRole(db) {
     return new Promise((resolve, reject) => {
-        const sql = `
-            INSERT OR REPLACE INTO roles (id, name, description, is_active) 
-            VALUES (?, ?, ?, ?)
-        `;
+        console.log('🔧 Создание роли admin...');
         
-        db.run(sql, [1, 'admin', 'Administrator role with full access', 1], (err) => {
+        // Сначала проверим, есть ли уже роль admin
+        db.get('SELECT id, name FROM roles WHERE name = ?', ['admin'], (err, row) => {
             if (err) {
-                console.error('❌ Ошибка создания роли admin:', err);
+                console.error('❌ Ошибка проверки роли admin:', err);
                 reject(err);
                 return;
             }
-            console.log('✅ Роль admin создана');
-            resolve();
+            
+            if (row) {
+                console.log(`✅ Роль admin уже существует (ID: ${row.id})`);
+                resolve();
+                return;
+            }
+            
+            const sql = `
+                INSERT OR REPLACE INTO roles (id, name, description, is_active) 
+                VALUES (?, ?, ?, ?)
+            `;
+            
+            console.log('🔧 Вставляем роль admin с ID=1...');
+            db.run(sql, [1, 'admin', 'Administrator role with full access', 1], (err) => {
+                if (err) {
+                    console.error('❌ Ошибка создания роли admin:', err);
+                    reject(err);
+                    return;
+                }
+                console.log('✅ Роль admin создана с ID=1');
+                resolve();
+            });
         });
     });
 }
 
 async function createAdminUser(db) {
     return new Promise((resolve, reject) => {
+        console.log('🔧 Создание пользователя admin...');
         const bcrypt = require('bcrypt');
         
         // Получаем учетные данные из переменных окружения
         const adminUsername = process.env.ADMIN_USERNAME || 'admin';
         const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
         const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+        
+        console.log(`🔧 Создаем пользователя: ${adminUsername} с role_id=1`);
         
         const sql = `
             INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role_id, addwho) 
@@ -232,7 +253,7 @@ async function createAdminUser(db) {
                 reject(err);
                 return;
             }
-            console.log(`✅ Admin пользователь создан: ${adminUsername}`);
+            console.log(`✅ Admin пользователь создан: ${adminUsername} с role_id=1`);
             resolve();
         });
     });
@@ -248,13 +269,48 @@ async function main() {
         await createAdminRole(db);
         await createAdminUser(db);
         
-        db.close((err) => {
+        // Проверяем, что все создалось правильно
+        console.log('🔍 Проверка созданных данных...');
+        
+        // Проверяем роли
+        db.get('SELECT COUNT(*) as count FROM roles', (err, row) => {
             if (err) {
-                console.error('❌ Ошибка закрытия БД:', err);
-                process.exit(1);
+                console.error('❌ Ошибка проверки ролей:', err);
+            } else {
+                console.log(`📊 Ролей в БД: ${row.count}`);
             }
-            console.log('✅ База данных инициализирована успешно');
-            process.exit(0);
+        });
+        
+        // Проверяем пользователей
+        db.get('SELECT user_id, login, role_id FROM users WHERE user_id = 1', (err, row) => {
+            if (err) {
+                console.error('❌ Ошибка проверки пользователя:', err);
+            } else if (row) {
+                console.log(`👤 Пользователь: ID=${row.user_id}, Login=${row.login}, Role ID=${row.role_id}`);
+            } else {
+                console.log('❌ Пользователь admin не найден!');
+            }
+        });
+        
+        // Проверяем JOIN
+        db.get('SELECT u.user_id, u.login, r.name as role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.user_id = 1', (err, row) => {
+            if (err) {
+                console.error('❌ Ошибка проверки JOIN:', err);
+            } else if (row) {
+                console.log(`🔗 JOIN результат: User=${row.login}, Role=${row.role_name}`);
+            } else {
+                console.log('❌ JOIN не вернул результат!');
+            }
+            
+            // Закрываем БД после всех проверок
+            db.close((err) => {
+                if (err) {
+                    console.error('❌ Ошибка закрытия БД:', err);
+                    process.exit(1);
+                }
+                console.log('✅ База данных инициализирована успешно');
+                process.exit(0);
+            });
         });
         
     } catch (error) {
