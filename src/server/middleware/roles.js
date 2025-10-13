@@ -13,23 +13,26 @@ function checkRole(allowedRoles = []) {
       }
 
       const db = database.getDb();
+      console.log('🔍 База данных подключена:', !!db);
+      console.log('🔍 Файл базы данных:', db?.filename);
       
       // Получаем роль пользователя
       console.log('🔍 Проверка роли для пользователя:', req.user.id);
       const userRole = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT r.name as role_name, r.is_active FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.user_id = ?',
-          [req.user.id],
-          (err, row) => {
-            if (err) {
-              console.error('❌ Ошибка SQL запроса:', err);
-              reject(err);
-            } else {
-              console.log('🔍 Результат SQL запроса:', row);
-              resolve(row);
-            }
+        const sql = 'SELECT r.name as role_name, r.is_active FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.user_id = ?';
+        const params = [req.user.id];
+        console.log('🔍 SQL запрос:', sql);
+        console.log('🔍 Параметры:', params);
+        
+        db.get(sql, params, (err, row) => {
+          if (err) {
+            console.error('❌ Ошибка SQL запроса:', err);
+            reject(err);
+          } else {
+            console.log('🔍 Результат SQL запроса:', row);
+            resolve(row);
           }
-        );
+        });
       });
 
       if (!userRole) {
@@ -38,7 +41,8 @@ function checkRole(allowedRoles = []) {
 
       // Проверяем, активна ли роль
       console.log('🔍 Проверка активности роли:', userRole.is_active, typeof userRole.is_active);
-      if (!userRole.is_active) {
+      const isRoleActive = userRole.is_active === 1 || userRole.is_active === '1' || userRole.is_active === true;
+      if (!isRoleActive) {
         console.log('❌ Роль неактивна:', userRole);
         return res.status(403).json({ error: 'Роль пользователя неактивна' });
       }
