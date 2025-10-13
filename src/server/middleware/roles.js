@@ -5,7 +5,6 @@ const database = require('../database/db');
  */
 function checkRole(allowedRoles = []) {
   return async (req, res, next) => {
-    console.log('🔍 checkRole вызван для:', req.user?.id, 'разрешенные роли:', allowedRoles);
     try {
       if (!req.user) {
         console.log('❌ Пользователь не аутентифицирован');
@@ -13,43 +12,17 @@ function checkRole(allowedRoles = []) {
       }
 
       const db = database.getDb();
-      console.log('🔍 База данных подключена:', !!db);
-      console.log('🔍 Файл базы данных:', db?.filename);
-      
-      // Проверим размер файла базы данных
-      if (db?.filename) {
-        try {
-          const fs = require('fs');
-          const stats = fs.statSync(db.filename);
-          console.log('🔍 Размер файла БД:', stats.size, 'байт');
-        } catch (err) {
-          console.log('🔍 Ошибка получения размера файла:', err.message);
-        }
-      }
-      
-      // Проверим, какие таблицы есть в базе данных
-      const tables = await new Promise((resolve, reject) => {
-        db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows.map(row => row.name));
-        });
-      });
-      console.log('🔍 Таблицы в БД:', tables);
       
       // Получаем роль пользователя
-      console.log('🔍 Проверка роли для пользователя:', req.user.id);
       const userRole = await new Promise((resolve, reject) => {
         const sql = 'SELECT r.name as role_name, r.is_active FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.user_id = ?';
         const params = [req.user.id];
-        console.log('🔍 SQL запрос:', sql);
-        console.log('🔍 Параметры:', params);
         
         db.get(sql, params, (err, row) => {
           if (err) {
             console.error('❌ Ошибка SQL запроса:', err);
             reject(err);
           } else {
-            console.log('🔍 Результат SQL запроса:', row);
             resolve(row);
           }
         });
@@ -60,10 +33,8 @@ function checkRole(allowedRoles = []) {
       }
 
       // Проверяем, активна ли роль
-      console.log('🔍 Проверка активности роли:', userRole.is_active, typeof userRole.is_active);
       const isRoleActive = userRole.is_active === 1 || userRole.is_active === '1' || userRole.is_active === true;
       if (!isRoleActive) {
-        console.log('❌ Роль неактивна:', userRole);
         return res.status(403).json({ error: 'Роль пользователя неактивна' });
       }
 
@@ -88,7 +59,6 @@ function checkRole(allowedRoles = []) {
  * Middleware для проверки, является ли пользователь администратором
  */
 function requireAdmin(req, res, next) {
-  console.log('🔍 requireAdmin вызван для пользователя:', req.user?.id);
   return checkRole(['admin'])(req, res, next);
 }
 
