@@ -212,12 +212,12 @@ async function createAdminRole(db) {
             }
             
             const sql = `
-                INSERT OR REPLACE INTO roles (id, name, description, is_active) 
-                VALUES (?, ?, ?, ?)
+                INSERT OR REPLACE INTO roles (id, name, is_active) 
+                VALUES (?, ?, ?)
             `;
             
             console.log('🔧 Вставляем роль admin с ID=1...');
-            db.run(sql, [1, 'admin', 'Administrator role with full access', 1], (err) => {
+            db.run(sql, [1, 'admin', 1], (err) => {
                 if (err) {
                     console.error('❌ Ошибка создания роли admin:', err);
                     reject(err);
