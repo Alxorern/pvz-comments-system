@@ -10,6 +10,7 @@ const usersRoutes = require('./routes/users');
 const rolesRoutes = require('./routes/roles');
 const settingsRoutes = require('./routes/settings');
 const dataRoutes = require('./routes/data');
+const debugRoutes = require('./routes/debug');
 
 const app = express();
 
@@ -53,6 +54,20 @@ app.get('/', (req, res) => {
 app.get('/index.html', (req, res) => {
   console.log('📄 Запрос на index.html - перенаправление на модульную версию');
   res.redirect('/');
+});
+
+// Debug страница (без аутентификации для диагностики)
+app.get('/debug', (req, res) => {
+  console.log('🔍 Запрос на debug страницу');
+  const filePath = path.join(__dirname, '../client/pages', 'debug.html');
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('❌ Ошибка отправки debug страницы:', err);
+      res.status(500).send('Ошибка загрузки debug страницы');
+    } else {
+      console.log('✅ Debug страница отправлена успешно');
+    }
+  });
 });
 
 // Защищенные маршруты - требуют токен
@@ -167,6 +182,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/data', dataRoutes);
+app.use('/api/debug', debugRoutes);
 
 // Обработка 404 ошибок
 app.use((req, res) => {

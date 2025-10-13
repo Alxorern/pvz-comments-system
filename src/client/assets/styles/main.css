@@ -3838,3 +3838,32 @@ body.login-page-body {
     visibility: visible !important;
     opacity: 1 !important;
 }
+
+/* ===== DEBUG СТРАНИЦА ===== */
+.debug-results {
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.debug-results pre {
+  background: var(--bg-color);
+  padding: 10px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.debug-results h3 {
+  margin: 0 0 10px 0;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+}
