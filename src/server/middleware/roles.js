@@ -16,6 +16,26 @@ function checkRole(allowedRoles = []) {
       console.log('🔍 База данных подключена:', !!db);
       console.log('🔍 Файл базы данных:', db?.filename);
       
+      // Проверим размер файла базы данных
+      if (db?.filename) {
+        try {
+          const fs = require('fs');
+          const stats = fs.statSync(db.filename);
+          console.log('🔍 Размер файла БД:', stats.size, 'байт');
+        } catch (err) {
+          console.log('🔍 Ошибка получения размера файла:', err.message);
+        }
+      }
+      
+      // Проверим, какие таблицы есть в базе данных
+      const tables = await new Promise((resolve, reject) => {
+        db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows.map(row => row.name));
+        });
+      });
+      console.log('🔍 Таблицы в БД:', tables);
+      
       // Получаем роль пользователя
       console.log('🔍 Проверка роли для пользователя:', req.user.id);
       const userRole = await new Promise((resolve, reject) => {
