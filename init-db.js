@@ -23,14 +23,14 @@ async function createTables(db) {
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER UNIQUE NOT NULL,
-                full_name TEXT,
                 login TEXT UNIQUE NOT NULL,
+                full_name TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
-                role_id INTEGER,
-                addwho TEXT DEFAULT 'admin',
+                role TEXT NOT NULL DEFAULT 'user',
+                created TEXT,
+                addwho TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (role_id) REFERENCES roles (id)
+                role_id INTEGER DEFAULT NULL
             );
             
             CREATE TABLE IF NOT EXISTS settings (
@@ -68,8 +68,9 @@ async function createTables(db) {
             CREATE TABLE IF NOT EXISTS roles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
-                is_active BOOLEAN DEFAULT 1,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                description TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1
             );
             
             CREATE TABLE IF NOT EXISTS regions (
@@ -212,12 +213,12 @@ async function createAdminRole(db) {
             }
             
             const sql = `
-                INSERT OR REPLACE INTO roles (id, name, is_active) 
-                VALUES (?, ?, ?)
+                INSERT OR REPLACE INTO roles (id, name, description, is_active) 
+                VALUES (?, ?, ?, ?)
             `;
             
             console.log('🔧 Вставляем роль admin с ID=1...');
-            db.run(sql, [1, 'admin', 1], (err) => {
+            db.run(sql, [1, 'admin', 'admin', 1], (err) => {
                 if (err) {
                     console.error('❌ Ошибка создания роли admin:', err);
                     reject(err);
@@ -243,11 +244,12 @@ async function createAdminUser(db) {
         console.log(`🔧 Создаем пользователя: ${adminUsername} с role_id=1`);
         
         const sql = `
-            INSERT OR REPLACE INTO users (user_id, full_name, login, password_hash, role_id, addwho) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO users (user_id, login, full_name, password_hash, role, created, addwho, role_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
-        db.run(sql, [1, 'Administrator', adminUsername, hashedPassword, 1, 'system'], (err) => {
+        const createdDate = new Date().toISOString();
+        db.run(sql, [1, adminUsername, 'Administrator', hashedPassword, 'admin', createdDate, 'system', 1], (err) => {
             if (err) {
                 console.error('❌ Ошибка создания admin:', err);
                 reject(err);
@@ -265,7 +267,6 @@ async function main() {
         
         const db = await initDatabase();
         await createTables(db);
-        await migrateDatabase(db);
         await createAdminRole(db);
         await createAdminUser(db);
         
