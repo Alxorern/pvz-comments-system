@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/roles');
+const { requireAdminOrSuperuser } = require('../middleware/roles');
 const database = require('../database/db');
 
 /**
  * GET /api/companies - Получение списка компаний
  */
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
     const offset = (page - 1) * limit;
@@ -68,7 +68,7 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * GET /api/companies/all - Получение всех компаний для выпадающих списков
  */
-router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/all', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
   try {
     const db = database.getDb();
     
@@ -96,7 +96,7 @@ router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * POST /api/companies - Создание новой компании
  */
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
   try {
     const { company_name, phone } = req.body;
     
@@ -160,7 +160,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * PUT /api/companies/:id - Обновление компании
  */
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
   try {
     const { id } = req.params;
     const { company_name, phone } = req.body;
@@ -210,7 +210,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * DELETE /api/companies/:id - Удаление компании
  */
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
   try {
     const { id } = req.params;
     const db = database.getDb();

@@ -97,7 +97,7 @@ router.post('/sync', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * GET /api/data/pvz - Получить данные ПВЗ из локальной базы
  */
-router.get('/pvz', authenticateToken, async (req, res) => {
+router.get('/pvz', authenticateToken, addMenuPermissions, async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
     const offset = (page - 1) * limit;
