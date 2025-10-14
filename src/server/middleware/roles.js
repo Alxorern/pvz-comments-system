@@ -63,10 +63,74 @@ function requireAdmin(req, res, next) {
 }
 
 /**
+ * Middleware для проверки, что пользователь имеет роль superuser
+ */
+function requireSuperuser(req, res, next) {
+  return checkRole(['superuser'])(req, res, next);
+}
+
+/**
+ * Middleware для проверки, что пользователь имеет роль admin или superuser
+ */
+function requireAdminOrSuperuser(req, res, next) {
+  return checkRole(['admin', 'superuser'])(req, res, next);
+}
+
+/**
  * Middleware для проверки, что пользователь имеет любую роль (не null)
  */
 function requireAnyRole(req, res, next) {
   return checkRole()(req, res, next);
+}
+
+/**
+ * Middleware для добавления информации о доступных пунктах меню в зависимости от роли
+ */
+function addMenuPermissions(req, res, next) {
+  if (!req.user) {
+    return next();
+  }
+
+  // Получаем роль пользователя и его компанию
+  const db = database.getDb();
+  const sql = `
+    SELECT 
+      r.name as role_name,
+      u.company_id
+    FROM users u 
+    LEFT JOIN roles r ON u.role_id = r.id 
+    WHERE u.user_id = ?
+  `;
+  
+  db.get(sql, [req.user.id], (err, row) => {
+    if (err) {
+      console.error('❌ Ошибка получения роли для меню:', err);
+      return next();
+    }
+
+    const roleName = row?.role_name;
+    const userCompanyId = row?.company_id;
+    
+    // Определяем доступные пункты меню в зависимости от роли
+    let menuItems = [];
+    
+    if (roleName === 'admin') {
+      // Админ видит все пункты меню
+      menuItems = ['pvz', 'companies', 'users', 'roles', 'settings'];
+    } else if (roleName === 'superuser') {
+      // Superuser видит только список ПВЗ
+      menuItems = ['pvz'];
+    } else {
+      // Обычные пользователи видят только список ПВЗ
+      menuItems = ['pvz'];
+    }
+    
+    req.user.menuItems = menuItems;
+    req.user.roleName = roleName;
+    req.user.companyId = userCompanyId;
+    
+    next();
+  });
 }
 
 /**
@@ -120,7 +184,10 @@ async function addUserRegions(req, res, next) {
 module.exports = {
   checkRole,
   requireAdmin,
+  requireSuperuser,
+  requireAdminOrSuperuser,
   requireAnyRole,
+  addMenuPermissions,
   getUserRegions,
   addUserRegions
 };

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Пользователи - ПВЗ Комментарии</title>
+    <title>💬 Пользователи - ПВЗ Комментарии</title>
     <link rel="stylesheet" href="/assets/styles/main.css">
 </head>
 <body>
@@ -49,6 +49,7 @@
                             <th>Логин</th>
                             <th>ФИО</th>
                             <th>Роль</th>
+                            <th>Компания</th>
                             <th>Создан</th>
                             <th>Создал</th>
                             <th>Действия</th>
@@ -85,6 +86,12 @@
                         <option value="">Выберите роль</option>
                     </select>
                 </div>
+                <div class="field">
+                    <label class="label">Компания</label>
+                    <select id="addUserCompany" class="input">
+                        <option value="">Выберите компанию</option>
+                    </select>
+                </div>
             </div>
             <div class="actions">
                 <button class="btn secondary" id="btnCancelAddUser">Отмена</button>
@@ -114,6 +121,12 @@
                     <label class="label">Роль</label>
                     <select id="editUserRole" class="input">
                         <option value="">Выберите роль</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="label">Компания</label>
+                    <select id="editUserCompany" class="input">
+                        <option value="">Выберите компанию</option>
                     </select>
                 </div>
             </div>

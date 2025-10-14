@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdmin, requireAnyRole, addUserRegions } = require('../middleware/roles');
+const { requireAdmin, requireAnyRole, addUserRegions, addMenuPermissions } = require('../middleware/roles');
 const googleSheetsService = require('../services/googleSheetsService');
 const scheduler = require('../services/scheduler');
 const database = require('../database/db');
@@ -14,7 +14,7 @@ function getSortExpression(sortBy, sortOrder) {
   const pvzFields = [
     'pvz_id', 'region', 'address', 'service_name', 'status_date',
     'status_name', 'company_name', 'transaction_date', 'transaction_amount',
-    'phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at'
+    'company_phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at'
   ];
   
   // Поля дат, которые нужно сортировать как даты
@@ -44,8 +44,13 @@ function getSortExpression(sortBy, sortOrder) {
     }
     
     // Для текстовых полей используем COLLATE NOCASE для правильной сортировки
-    if (['region', 'address', 'service_name', 'status_name', 'company_name'].includes(sortBy)) {
+    if (['region', 'address', 'service_name', 'status_name'].includes(sortBy)) {
       return `p.${sortBy} COLLATE NOCASE ${sortOrder}`;
+    }
+    
+    // Для company_name используем поле из таблицы companies
+    if (sortBy === 'company_name') {
+      return `c.company_name COLLATE NOCASE ${sortOrder}`;
     }
     
     // Для числовых полей
@@ -92,23 +97,42 @@ router.post('/sync', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * GET /api/data/pvz - Получить данные ПВЗ из локальной базы
  */
-router.get('/pvz', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/pvz', authenticateToken, addMenuPermissions, async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
     const offset = (page - 1) * limit;
     
     const db = database.getDb();
     
-    let query = 'SELECT * FROM pvz';
-    let countQuery = 'SELECT COUNT(*) as total FROM pvz';
+    let query = `
+      SELECT p.*, c.company_name, c.phone as company_phone 
+      FROM pvz p 
+      LEFT JOIN companies c ON p.company_id = c.company_id
+    `;
+    let countQuery = `
+      SELECT COUNT(*) as total 
+      FROM pvz p 
+      LEFT JOIN companies c ON p.company_id = c.company_id
+    `;
     let params = [];
+    let whereConditions = [];
+    
+    // Фильтрация по компании пользователя (если не admin)
+    if (req.user.roleName !== 'admin' && req.user.companyId) {
+      whereConditions.push('p.company_id = ?');
+      params.push(req.user.companyId);
+    }
     
     if (search) {
-      const searchCondition = `WHERE pvz_id LIKE ? OR region LIKE ? OR address LIKE ? OR company_name LIKE ?`;
-      query += ` ${searchCondition}`;
-      countQuery += ` ${searchCondition}`;
+      whereConditions.push('(p.pvz_id LIKE ? OR p.region LIKE ? OR p.address LIKE ? OR c.company_name LIKE ?)');
       const searchParam = `%${search}%`;
-      params = [searchParam, searchParam, searchParam, searchParam];
+      params.push(searchParam, searchParam, searchParam, searchParam);
+    }
+    
+    if (whereConditions.length > 0) {
+      const whereClause = 'WHERE ' + whereConditions.join(' AND ');
+      query += ` ${whereClause}`;
+      countQuery += ` ${whereClause}`;
     }
     
     query += ` ORDER BY updated_at DESC LIMIT ? OFFSET ?`;
@@ -122,9 +146,10 @@ router.get('/pvz', authenticateToken, requireAdmin, async (req, res) => {
       });
     });
     
-    // Получаем общее количество
+    // Получаем общее количество (убираем LIMIT и OFFSET из params)
+    const countParams = params.slice(0, -2); // Убираем последние 2 параметра (limit, offset)
     const countResult = await new Promise((resolve, reject) => {
-      db.get(countQuery, search ? [searchParam, searchParam, searchParam, searchParam] : [], (err, row) => {
+      db.get(countQuery, countParams, (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -174,7 +199,7 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegio
     const allowedSortColumns = [
       'pvz_id', 'region', 'address', 'service_name', 'status_date',
       'status_name', 'company_name', 'transaction_date', 'transaction_amount',
-      'phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at',
+      'company_phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at',
       'last_comment', 'comment_author', 'comment_date'
     ];
     const sortBy = allowedSortColumns.includes(req.query.sortBy) ? req.query.sortBy : 'updated_at';
@@ -238,7 +263,7 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegio
     }
     
     if (company) {
-      whereConditions.push('p.company_name LIKE ?');
+      whereConditions.push('c.company_name LIKE ?');
       params.push(`%${company}%`);
     }
     
@@ -331,9 +356,10 @@ router.get('/comments', authenticateToken, requireAnyRole, async (req, res) => {
     const db = database.getDb();
     
     let query = `
-      SELECT c.*, p.region, p.address, p.company_name 
+      SELECT c.*, p.region, p.address, comp.company_name 
       FROM comments c 
       LEFT JOIN pvz p ON c.pvz_id = p.pvz_id
+      LEFT JOIN companies comp ON p.company_id = comp.company_id
     `;
     let params = [];
     
@@ -655,7 +681,7 @@ router.get('/regions', authenticateToken, requireAnyRole, addUserRegions, async 
 /**
  * POST /api/data/export - Экспорт данных в XLS файл
  */
-router.post('/export', authenticateToken, requireAnyRole, addUserRegions, async (req, res) => {
+router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, async (req, res) => {
   try {
     const { filters } = req.body;
     
@@ -680,6 +706,12 @@ router.post('/export', authenticateToken, requireAnyRole, addUserRegions, async 
     if (pvzId) {
       whereConditions.push('p.pvz_id LIKE ?');
       params.push(`%${pvzId}%`);
+    }
+    
+    // Фильтрация по компании пользователя (если не admin)
+    if (req.user.roleName !== 'admin' && req.user.companyId) {
+      whereConditions.push('p.company_id = ?');
+      params.push(req.user.companyId);
     }
     
     // Фильтрация по регионам в зависимости от роли пользователя
@@ -720,7 +752,7 @@ router.post('/export', authenticateToken, requireAnyRole, addUserRegions, async 
     }
     
     if (company) {
-      whereConditions.push('p.company_name LIKE ?');
+      whereConditions.push('c.company_name LIKE ?');
       params.push(`%${company}%`);
     }
     
@@ -735,10 +767,10 @@ router.post('/export', authenticateToken, requireAnyRole, addUserRegions, async 
         p.service_name,
         p.status_date,
         p.status_name,
-        p.company_name,
+        comp.company_name,
         p.transaction_date,
         p.transaction_amount,
-        p.phone,
+        comp.phone,
         p.postal_code,
         p.fitting_room,
         c.comment as last_comment,
@@ -765,6 +797,7 @@ router.post('/export', authenticateToken, requireAnyRole, addUserRegions, async 
           WHERE c3.pvz_id = c1.pvz_id AND c3.created_at = c2.max_date
         )
       ) c ON p.pvz_id = c.pvz_id
+      LEFT JOIN companies comp ON p.company_id = comp.company_id
       ${whereClause}
       ORDER BY p.region, p.pvz_id
     `;

@@ -15,6 +15,7 @@ class GoogleSheetsService {
    */
   async initialize() {
     if (this.initialized) {
+      console.log('✅ Google Sheets сервис уже инициализирован');
       return;
     }
 
@@ -80,9 +81,11 @@ class GoogleSheetsService {
    */
   async readPvzData(spreadsheetId, sheetName) {
     try {
+      console.log(`📖 Читаем данные из Google Sheets: ${spreadsheetId}, лист: ${sheetName}`);
       await this.initialize();
       
       // Сначала получаем информацию о листе для определения размера
+      console.log('📊 Получаем информацию о листе...');
       const sheetInfo = await this.sheets.spreadsheets.get({
         spreadsheetId: spreadsheetId,
         ranges: [`${sheetName}!A:Z`],
@@ -189,6 +192,14 @@ class GoogleSheetsService {
    * Синхронизация данных ПВЗ с локальной базой данных
    */
   async syncPvzData() {
+    console.log('🔄 Начинаем синхронизацию данных ПВЗ...');
+    
+    // Проверяем инициализацию
+    if (!this.initialized) {
+      console.log('🔧 Google Sheets сервис не инициализирован, инициализируем...');
+      await this.initialize();
+    }
+    
     const startTime = Date.now();
     let logData = {
       syncType: 'pvz',
@@ -201,7 +212,9 @@ class GoogleSheetsService {
     };
 
     try {
+      console.log('📋 Получаем настройки...');
       const settings = await this.getSettings();
+      console.log('📋 Настройки получены:', settings);
       
       if (!settings.pvzTableId || !settings.pvzSheetName) {
         const errorMsg = 'Настройки таблицы ПВЗ не найдены';
@@ -250,6 +263,11 @@ class GoogleSheetsService {
         // Сохраняем сумму транзакции как строку, а не число
         const transactionAmount = row['Сумма транзакции, руб'] || '';
         
+        // Получаем или создаем компанию
+        const companyName = (row['Наименование компании'] || '').toString();
+        const companyPhone = (row['Телефон'] || '').toString();
+        const companyId = await this.getOrCreateCompany(db, companyName, companyPhone);
+        
         validPvzData.push({
           pvz_id: cleanPvzId,
           region: (row['Регион'] || '').toString(),
@@ -257,10 +275,9 @@ class GoogleSheetsService {
           service_name: (row['Наименование сервиса'] || '').toString(),
           status_date: (row['Дата статуса'] || '').toString(),
           status_name: (row['Наименование статуса'] || '').toString(),
-          company_name: (row['Наименование компании'] || '').toString(),
+          company_id: companyId,
           transaction_date: (row['Дата транзакции'] || '').toString(),
           transaction_amount: transactionAmount.toString(), // Сохраняем как строку
-          phone: (row['Телефон'] || '').toString(),
           postal_code: (row['Индекс'] || '').toString(),
           fitting_room: (row['Примерочная'] || '').toString()
         });
@@ -379,9 +396,9 @@ class GoogleSheetsService {
     const upsertSQL = `
       INSERT OR REPLACE INTO pvz (
         pvz_id, region, address, service_name, status_date,
-        status_name, company_name, transaction_date, transaction_amount,
-        phone, postal_code, fitting_room, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        status_name, company_id, transaction_date, transaction_amount,
+        postal_code, fitting_room, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     return new Promise((resolve, reject) => {
@@ -395,8 +412,8 @@ class GoogleSheetsService {
         for (const record of records) {
           stmt.run([
             record.pvz_id, record.region, record.address, record.service_name,
-            record.status_date, record.status_name, record.company_name,
-            record.transaction_date, record.transaction_amount, record.phone,
+            record.status_date, record.status_name, record.company_id,
+            record.transaction_date, record.transaction_amount,
             record.postal_code, record.fitting_room
           ], function(err) {
             if (err && !hasError) {
@@ -442,16 +459,16 @@ class GoogleSheetsService {
     const upsertSQL = `
       INSERT OR REPLACE INTO pvz (
         pvz_id, region, address, service_name, status_date,
-        status_name, company_name, transaction_date, transaction_amount,
-        phone, postal_code, fitting_room, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        status_name, company_id, transaction_date, transaction_amount,
+        postal_code, fitting_room, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     return new Promise((resolve, reject) => {
       db.run(upsertSQL, [
         record.pvz_id, record.region, record.address, record.service_name,
-        record.status_date, record.status_name, record.company_name,
-        record.transaction_date, record.transaction_amount, record.phone,
+        record.status_date, record.status_name, record.company_id,
+        record.transaction_date, record.transaction_amount,
         record.postal_code, record.fitting_room
       ], function(err) {
         if (err) reject(err);
@@ -469,15 +486,18 @@ class GoogleSheetsService {
     
     // Проверяем кэш
     if (this.settingsCache && (now - this.settingsCacheTime) < this.settingsCacheTimeout) {
+      console.log('📋 Используем кэшированные настройки');
       return this.settingsCache;
     }
     
+    console.log('📋 Загружаем настройки из базы данных...');
     const database = require('../database/db');
     const db = database.getDb();
     
     return new Promise((resolve, reject) => {
       db.all('SELECT key, value FROM settings', [], (err, rows) => {
         if (err) {
+          console.error('❌ Ошибка загрузки настроек:', err);
           reject(err);
           return;
         }
@@ -485,6 +505,8 @@ class GoogleSheetsService {
         rows.forEach(row => {
           settings[row.key] = row.value;
         });
+        
+        console.log('📋 Загруженные настройки:', settings);
         
         // Обновляем кэш
         this.settingsCache = settings;
@@ -501,6 +523,64 @@ class GoogleSheetsService {
   clearSettingsCache() {
     this.settingsCache = null;
     this.settingsCacheTime = 0;
+  }
+
+  /**
+   * Получить или создать компанию
+   */
+  async getOrCreateCompany(db, companyName, companyPhone) {
+    if (!companyName || companyName.trim() === '') {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      // Сначала ищем существующую компанию
+      db.get(
+        'SELECT company_id FROM companies WHERE company_name = ?',
+        [companyName.trim()],
+        (err, row) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          if (row) {
+            // Компания найдена
+            resolve(row.company_id);
+            return;
+          }
+
+          // Компания не найдена, создаем новую
+          // Генерируем новый company_id
+          db.get(
+            'SELECT MAX(CAST(company_id AS INTEGER)) as max_id FROM companies WHERE company_id GLOB "[0-9]*"',
+            [],
+            (err, maxRow) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              const nextId = (maxRow?.max_id || 0) + 1;
+              const companyId = String(nextId).padStart(6, '0');
+
+              db.run(
+                'INSERT INTO companies (company_id, company_name, phone) VALUES (?, ?, ?)',
+                [companyId, companyName.trim(), companyPhone.trim()],
+                function(err) {
+                  if (err) {
+                    reject(err);
+                    return;
+                  }
+                  console.log(`🏢 Создана новая компания: ${companyName} (ID: ${companyId})`);
+                  resolve(companyId);
+                }
+              );
+            }
+          );
+        }
+      );
+    });
   }
 }
 

@@ -54,15 +54,20 @@ async function loadSchedulerState() {
 
 async function startScheduler() {
   if (isRunning) {
-    // Шедулер уже запущен
+    console.log('⚠️ Шедулер уже запущен, пропускаем запуск');
     return;
   }
 
+  console.log('🔧 Загружаем настройки для шедулера...');
   const settings = await googleSheetsService.getSettings();
+  console.log('📋 Настройки шедулера:', settings);
+  
   currentFrequency = parseInt(settings.updateFrequency || '60'); // minutes
+  console.log(`⏰ Установлена частота: ${currentFrequency} минут`);
 
   // Останавливаем предыдущую задачу, если она была
   if (task) {
+    console.log('🛑 Останавливаем предыдущую задачу...');
     task.stop();
   }
 
@@ -70,6 +75,7 @@ async function startScheduler() {
   // cron syntax: minute hour day-of-month month day-of-week
   // For example, every 15 minutes: '*/15 * * * *'
   const cronExpression = `*/${currentFrequency} * * * *`;
+  console.log(`🔧 Cron выражение: ${cronExpression}`);
   
   task = cron.schedule(cronExpression, async () => {
     console.log(`⏰ Автосинхронизация (${currentFrequency} мин)...`);
@@ -100,13 +106,15 @@ async function stopScheduler() {
 }
 
 async function updateFrequency(newFrequency) {
+  console.log(`🔄 Обновление частоты шедулера: ${currentFrequency} -> ${newFrequency} минут`);
   currentFrequency = newFrequency;
   if (isRunning) {
+    console.log('🔄 Шедулер запущен, перезапускаем с новой частотой...');
     // Обновляем частоту
-    stopScheduler();
+    await stopScheduler();
     await startScheduler();
   } else {
-    // Частота обновлена, но шедулер не запущен
+    console.log('ℹ️ Шедулер не запущен, частота обновлена');
   }
 }
 
@@ -122,16 +130,18 @@ function getStatus() {
  * Инициализация шедулера при запуске сервера
  */
 async function initializeScheduler() {
-  // Инициализация шедулера
+  console.log('🚀 Инициализация шедулера...');
   
   // Загружаем сохраненное состояние
   const wasRunning = await loadSchedulerState();
+  console.log(`📊 Состояние шедулера при запуске: ${wasRunning ? 'запущен' : 'остановлен'}`);
   
   if (wasRunning) {
+    console.log('🔄 Восстанавливаем шедулер...');
     // Восстанавливаем шедулер
     await startScheduler();
   } else {
-    // Шедулер был остановлен
+    console.log('ℹ️ Шедулер был остановлен, не запускаем');
   }
 }
 

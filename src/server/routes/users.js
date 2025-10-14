@@ -10,7 +10,18 @@ const { requireAdmin } = require('../middleware/roles');
  */
 router.get('/', authenticateToken, requireAdmin, (req, res) => {
   const db = database.getDb();
-  db.all('SELECT * FROM users ORDER BY created_at DESC', (err, rows) => {
+  const query = `
+    SELECT 
+      u.*, 
+      r.name as role_name,
+      c.company_name
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN companies c ON u.company_id = c.company_id
+    ORDER BY u.created_at DESC
+  `;
+  
+  db.all(query, (err, rows) => {
     if (err) {
       console.error('❌ Ошибка получения пользователей:', err);
       res.status(500).json({ error: err.message });
@@ -25,7 +36,7 @@ router.get('/', authenticateToken, requireAdmin, (req, res) => {
  * POST /api/users - Создать нового пользователя
  */
 router.post('/', authenticateToken, requireAdmin, (req, res) => {
-  const { full_name, login, password, role } = req.body;
+  const { full_name, login, password, role, company_id } = req.body;
   const password_hash = bcrypt.hashSync(password, 10);
   
   const db = database.getDb();
@@ -41,8 +52,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
     const next_user_id = (row.max_id || 0) + 1;
     
     db.run(
-      'INSERT INTO users (user_id, full_name, login, password_hash, role, role_id, addwho) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [next_user_id, full_name, login, password_hash, role, 1, 'admin'],
+      'INSERT INTO users (user_id, full_name, login, password_hash, role, role_id, addwho, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [next_user_id, full_name, login, password_hash, role, 1, 'admin', company_id || null],
       function(err) {
         if (err) {
           console.error('❌ Ошибка создания пользователя:', err);
@@ -61,21 +72,21 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
  */
 router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   const { id } = req.params;
-  const { full_name, login, password, role } = req.body;
+  const { full_name, login, password, role, company_id } = req.body;
   
-  console.log('🔄 Обновление пользователя:', { id, full_name, login, role, hasPassword: !!password });
+  console.log('🔄 Обновление пользователя:', { id, full_name, login, role, company_id, hasPassword: !!password });
   
   let query, params;
   
   if (password && password.trim() !== '') {
     // Если пароль указан, обновляем его
     const password_hash = bcrypt.hashSync(password, 10);
-    query = 'UPDATE users SET full_name = ?, login = ?, password_hash = ?, role = ? WHERE user_id = ?';
-    params = [full_name, login, password_hash, role, id];
+    query = 'UPDATE users SET full_name = ?, login = ?, password_hash = ?, role = ?, company_id = ? WHERE user_id = ?';
+    params = [full_name, login, password_hash, role, company_id || null, id];
   } else {
     // Если пароль не указан, не обновляем его
-    query = 'UPDATE users SET full_name = ?, login = ?, role = ? WHERE user_id = ?';
-    params = [full_name, login, role, id];
+    query = 'UPDATE users SET full_name = ?, login = ?, role = ?, company_id = ? WHERE user_id = ?';
+    params = [full_name, login, role, company_id || null, id];
   }
   
   console.log('🔍 Выполняем SQL запрос:', query);

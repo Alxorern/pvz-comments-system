@@ -3,6 +3,7 @@ const path = require('path');
 const cors = require('cors');
 const database = require('./database/db');
 const { authenticatePage } = require('./middleware/auth');
+const { addMenuPermissions } = require('./middleware/roles');
 
 // Импортируем маршруты
 const authRoutes = require('./routes/auth');
@@ -10,6 +11,7 @@ const usersRoutes = require('./routes/users');
 const rolesRoutes = require('./routes/roles');
 const settingsRoutes = require('./routes/settings');
 const dataRoutes = require('./routes/data');
+const companiesRoutes = require('./routes/companies');
 
 const app = express();
 
@@ -57,7 +59,7 @@ app.get('/index.html', (req, res) => {
 
 
 // Защищенные маршруты - требуют токен
-app.get('/main', authenticatePage, (req, res) => {
+app.get('/main', authenticatePage, addMenuPermissions, (req, res) => {
   console.log('📄 Запрос на главную страницу приложения (/main) для пользователя:', req.user ? req.user.login : 'неаутентифицированный пользователь');
   const filePath = path.join(__dirname, '../client/pages', 'main.html');
   res.sendFile(filePath, (err) => {
@@ -71,7 +73,7 @@ app.get('/main', authenticatePage, (req, res) => {
 });
 
 
-app.get('/users', authenticatePage, (req, res) => {
+app.get('/users', authenticatePage, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу пользователей (/users) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'users.html');
@@ -85,7 +87,7 @@ app.get('/users', authenticatePage, (req, res) => {
   });
 });
 
-app.get('/roles', authenticatePage, (req, res) => {
+app.get('/roles', authenticatePage, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу ролей (/roles) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'roles.html');
@@ -99,7 +101,21 @@ app.get('/roles', authenticatePage, (req, res) => {
   });
 });
 
-app.get('/pvz', authenticatePage, (req, res) => {
+app.get('/companies', authenticatePage, addMenuPermissions, (req, res) => {
+  const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
+  console.log('📄 Запрос на страницу компаний (/companies) для пользователя:', userInfo);
+  const filePath = path.join(__dirname, '../client/pages', 'companies.html');
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('❌ Ошибка отправки страницы компаний:', err);
+      res.status(500).send('Ошибка загрузки страницы');
+    } else {
+      console.log('✅ Страница компаний отправлена успешно');
+    }
+  });
+});
+
+app.get('/pvz', authenticatePage, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу ПВЗ (/pvz) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'pvz.html');
@@ -114,7 +130,7 @@ app.get('/pvz', authenticatePage, (req, res) => {
 });
 
 
-app.get('/settings', authenticatePage, (req, res) => {
+app.get('/settings', authenticatePage, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу настроек (/settings) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'settings.html');
@@ -168,6 +184,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/data', dataRoutes);
+app.use('/api/companies', companiesRoutes);
 
 // Обработка 404 ошибок
 app.use((req, res) => {

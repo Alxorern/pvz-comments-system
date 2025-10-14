@@ -3,7 +3,7 @@ const router = express.Router();
 const database = require('../database/db');
 const bcrypt = require('bcrypt');
 const { generateToken, authenticateToken } = require('../middleware/auth');
-const { requireAnyRole } = require('../middleware/roles');
+const { requireAnyRole, addMenuPermissions } = require('../middleware/roles');
 
 /**
  * POST /api/auth - Аутентификация пользователя
@@ -122,6 +122,32 @@ router.get('/user-info', authenticateToken, requireAnyRole, (req, res) => {
     );
   } catch (error) {
     console.error('❌ Ошибка получения информации о пользователе:', error);
+    res.status(500).json({ error: 'Ошибка получения информации о пользователе' });
+  }
+});
+
+/**
+ * GET /api/auth/user-info - Получение информации о пользователе с доступными пунктами меню
+ */
+router.get('/user-info', authenticateToken, addMenuPermissions, (req, res) => {
+  try {
+    const userInfo = {
+      id: req.user.id,
+      login: req.user.login,
+      full_name: req.user.full_name,
+      role: req.user.role,
+      roleName: req.user.roleName,
+      menuItems: req.user.menuItems || []
+    };
+
+    console.log('📋 Информация о пользователе с меню:', userInfo);
+    
+    res.json({
+      success: true,
+      user: userInfo
+    });
+  } catch (error) {
+    console.error('❌ Ошибка получения информации о пользователе с меню:', error);
     res.status(500).json({ error: 'Ошибка получения информации о пользователе' });
   }
 });

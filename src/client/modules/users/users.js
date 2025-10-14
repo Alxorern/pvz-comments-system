@@ -7,6 +7,7 @@ class UsersModule {
     this.cache = {
       users: [],
       roles: [],
+      companies: [],
       lastCreatedUserId: null
     };
   }
@@ -103,6 +104,19 @@ class UsersModule {
       } else {
         console.error('❌ Ошибка загрузки ролей:', rolesResponse);
       }
+
+      // Загружаем компании
+      console.log('📥 Загружаем компании...');
+      const companiesResponse = await window.apiClient.get('/api/companies/all');
+      console.log('📥 Ответ API компаний:', companiesResponse);
+      
+      if (companiesResponse && companiesResponse.success) {
+        this.cache.companies = companiesResponse.data;
+        console.log('✅ Загружено компаний:', companiesResponse.data.length);
+        this.populateCompanies();
+      } else {
+        console.error('❌ Ошибка загрузки компаний:', companiesResponse);
+      }
     } catch (error) {
       console.error('❌ Ошибка загрузки данных пользователей:', error);
       if (window.utils) {
@@ -139,6 +153,33 @@ class UsersModule {
   }
 
   /**
+   * Заполнение выпадающих списков компаний
+   */
+  populateCompanies() {
+    const addSelect = document.getElementById('addUserCompany');
+    if (addSelect) {
+      addSelect.innerHTML = '<option value="">Выберите компанию</option>';
+      this.cache.companies.forEach(company => {
+        const option = document.createElement('option');
+        option.value = company.company_id;
+        option.textContent = company.company_name;
+        addSelect.appendChild(option);
+      });
+    }
+    
+    const editSelect = document.getElementById('editUserCompany');
+    if (editSelect) {
+      editSelect.innerHTML = '<option value="">Выберите компанию</option>';
+      this.cache.companies.forEach(company => {
+        const option = document.createElement('option');
+        option.value = company.company_id;
+        option.textContent = company.company_name;
+        editSelect.appendChild(option);
+      });
+    }
+  }
+
+  /**
    * Отображение списка пользователей
    */
   renderUsers() {
@@ -156,7 +197,8 @@ class UsersModule {
         <td>${user.user_id}</td>
         <td>${user.login}</td>
         <td>${user.full_name}</td>
-        <td>${user.role}</td>
+        <td>${user.role_name || user.role}</td>
+        <td>${user.company_name || '-'}</td>
         <td>${user.created ? (window.utils ? window.utils.formatDate(user.created) : user.created) : ''}</td>
         <td>${user.addwho || ''}</td>
         <td>
@@ -220,6 +262,7 @@ class UsersModule {
         document.getElementById('editUserLogin').value = user.login || '';
         document.getElementById('editUserPassword').value = '';
         document.getElementById('editUserRole').value = user.role || '';
+        document.getElementById('editUserCompany').value = user.company_id || '';
         
         this.editingUserId = userId;
       } else {
@@ -263,8 +306,9 @@ class UsersModule {
     const loginEl = document.getElementById('addUserLogin');
     const passwordEl = document.getElementById('addUserPassword');
     const roleEl = document.getElementById('addUserRole');
+    const companyEl = document.getElementById('addUserCompany');
     
-    if (!fullNameEl || !loginEl || !passwordEl || !roleEl) {
+    if (!fullNameEl || !loginEl || !passwordEl || !roleEl || !companyEl) {
       if (window.utils) {
         window.utils.showNotification('Не все поля формы пользователя найдены', 'error');
       }
@@ -275,10 +319,11 @@ class UsersModule {
     const login = loginEl.value.trim();
     const password = passwordEl.value.trim();
     const role = roleEl.value;
+    const company_id = companyEl.value;
 
     if (!fullName || !login || !password || !role) {
       if (window.utils) {
-        window.utils.showNotification('Заполните все поля', 'error');
+        window.utils.showNotification('Заполните все обязательные поля', 'error');
       }
       return;
     }
@@ -287,7 +332,8 @@ class UsersModule {
       full_name: fullName,
       login: login,
       password: password,
-      role: role
+      role: role,
+      company_id: company_id || null
     };
 
     try {
@@ -337,8 +383,9 @@ class UsersModule {
     const loginEl = document.getElementById('editUserLogin');
     const passwordEl = document.getElementById('editUserPassword');
     const roleEl = document.getElementById('editUserRole');
+    const companyEl = document.getElementById('editUserCompany');
     
-    if (!fullNameEl || !loginEl || !passwordEl || !roleEl) {
+    if (!fullNameEl || !loginEl || !passwordEl || !roleEl || !companyEl) {
       if (window.utils) {
         window.utils.showNotification('Не все поля формы пользователя найдены', 'error');
       }
@@ -349,6 +396,7 @@ class UsersModule {
     const login = loginEl.value.trim();
     const password = passwordEl.value.trim();
     const role = roleEl.value;
+    const company_id = companyEl.value;
 
     if (!fullName || !login || !role) {
       if (window.utils) {
@@ -361,7 +409,8 @@ class UsersModule {
       full_name: fullName,
       login: login,
       password: password,
-      role: role
+      role: role,
+      company_id: company_id || null
     };
 
     try {
