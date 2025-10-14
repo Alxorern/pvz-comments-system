@@ -96,7 +96,7 @@ router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * POST /api/companies - Создание новой компании
  */
-router.post('/', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { company_name, phone } = req.body;
     
@@ -160,7 +160,7 @@ router.post('/', authenticateToken, requireAdminOrSuperuser, async (req, res) =>
 /**
  * PUT /api/companies/:id - Обновление компании
  */
-router.put('/:id', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { company_name, phone } = req.body;
@@ -210,7 +210,7 @@ router.put('/:id', authenticateToken, requireAdminOrSuperuser, async (req, res) 
 /**
  * DELETE /api/companies/:id - Удаление компании
  */
-router.delete('/:id', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const db = database.getDb();
