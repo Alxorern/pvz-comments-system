@@ -533,11 +533,22 @@ class GoogleSheetsService {
       return null;
     }
 
+    // Нормализуем название компании
+    const normalizedName = companyName.trim().replace(/\s+/g, ' ');
+    
+    // Локальный кэш, чтобы в рамках одной синхронизации не создавать дублей
+    if (!this.companyNameToId) {
+      this.companyNameToId = new Map();
+    }
+    if (this.companyNameToId.has(normalizedName)) {
+      return this.companyNameToId.get(normalizedName);
+    }
+
     return new Promise((resolve, reject) => {
-      // Сначала ищем существующую компанию
+      // Сначала ищем существующую компанию (точное совпадение)
       db.get(
         'SELECT company_id FROM companies WHERE company_name = ?',
-        [companyName.trim()],
+        [normalizedName],
         (err, row) => {
           if (err) {
             reject(err);
@@ -545,39 +556,64 @@ class GoogleSheetsService {
           }
 
           if (row) {
-            // Компания найдена
+            this.companyNameToId.set(normalizedName, row.company_id);
             resolve(row.company_id);
             return;
           }
 
-          // Компания не найдена, создаем новую
-          // Генерируем новый company_id
-          db.get(
-            'SELECT MAX(CAST(company_id AS INTEGER)) as max_id FROM companies WHERE company_id GLOB "[0-9]*"',
-            [],
-            (err, maxRow) => {
-              if (err) {
-                reject(err);
-                return;
-              }
+          // Компания не найдена — пытаемся вставить с уникальным ограничением
+          db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
 
-              const nextId = (maxRow?.max_id || 0) + 1;
-              const companyId = String(nextId).padStart(6, '0');
-
-              db.run(
-                'INSERT INTO companies (company_id, company_name, phone) VALUES (?, ?, ?)',
-                [companyId, companyName.trim(), companyPhone.trim()],
-                function(err) {
-                  if (err) {
-                    reject(err);
-                    return;
-                  }
-                  console.log(`🏢 Создана новая компания: ${companyName} (ID: ${companyId})`);
-                  resolve(companyId);
+            db.get(
+              'SELECT MAX(CAST(company_id AS INTEGER)) as max_id FROM companies WHERE company_id GLOB "[0-9]*"',
+              [],
+              (err, maxRow) => {
+                if (err) {
+                  db.run('ROLLBACK');
+                  reject(err);
+                  return;
                 }
-              );
-            }
-          );
+
+                const nextId = (maxRow?.max_id || 0) + 1;
+                const companyId = String(nextId).padStart(6, '0');
+
+                // Вставляем с защитой от дублей по названию
+                db.run(
+                  'INSERT OR IGNORE INTO companies (company_id, company_name, phone) VALUES (?, ?, ?)',
+                  [companyId, normalizedName, (companyPhone || '').trim()],
+                  function(err) {
+                    if (err) {
+                      db.run('ROLLBACK');
+                      reject(err);
+                      return;
+                    }
+
+                    // Если вставка проигнорирована из-за уникального индекса,
+                    // просто получаем существующий company_id
+                    const fetchSql = 'SELECT company_id FROM companies WHERE company_name = ?';
+                    db.get(fetchSql, [normalizedName], (err, fetched) => {
+                      if (err) {
+                        db.run('ROLLBACK');
+                        reject(err);
+                        return;
+                      }
+
+                      db.run('COMMIT');
+                      const finalId = fetched?.company_id || companyId;
+                      this.companyNameToId.set(normalizedName, finalId);
+                      if (fetched) {
+                        resolve(finalId);
+                      } else {
+                        console.log(`🏢 Создана новая компания: ${normalizedName} (ID: ${companyId})`);
+                        resolve(companyId);
+                      }
+                    });
+                  }
+                );
+              }
+            );
+          });
         }
       );
     });

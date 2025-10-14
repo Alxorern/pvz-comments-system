@@ -50,6 +50,9 @@ async function createTables(db) {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             
+            -- Уникальный индекс на название компании, чтобы не допускать дублей
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_company_name ON companies(company_name);
+            
             CREATE TABLE IF NOT EXISTS pvz (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pvz_id TEXT UNIQUE NOT NULL,
