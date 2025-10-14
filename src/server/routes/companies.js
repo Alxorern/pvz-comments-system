@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdminOrSuperuser } = require('../middleware/roles');
+const { requireAdmin } = require('../middleware/roles');
 const database = require('../database/db');
 
 /**
  * GET /api/companies - Получение списка компаний
  */
-router.get('/', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
     const offset = (page - 1) * limit;
@@ -68,7 +68,7 @@ router.get('/', authenticateToken, requireAdminOrSuperuser, async (req, res) => 
 /**
  * GET /api/companies/all - Получение всех компаний для выпадающих списков
  */
-router.get('/all', authenticateToken, requireAdminOrSuperuser, async (req, res) => {
+router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const db = database.getDb();
     

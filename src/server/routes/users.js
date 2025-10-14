@@ -3,7 +3,7 @@ const router = express.Router();
 const database = require('../database/db');
 const bcrypt = require('bcrypt');
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/roles');
+const { requireAdmin, addMenuPermissions } = require('../middleware/roles');
 
 /**
  * GET /api/users - Получить всех пользователей
