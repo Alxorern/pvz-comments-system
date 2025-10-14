@@ -41,8 +41,12 @@ class MenuManager {
         const navContainers = document.querySelectorAll('.sidebar-nav, .nav');
         
         navContainers.forEach(container => {
-            // Очищаем контейнер
-            container.innerHTML = '';
+            // Сохраняем кнопку выхода, если она есть
+            const logoutButton = container.querySelector('#btnLogout');
+            
+            // Очищаем только пункты меню, но не кнопку выхода
+            const menuItems = container.querySelectorAll('.nav-item:not(#btnLogout)');
+            menuItems.forEach(item => item.remove());
             
             // Добавляем доступные пункты меню
             availableItems.forEach(itemKey => {
@@ -62,7 +66,12 @@ class MenuManager {
                         <span class="nav-text">${item.text}</span>
                     `;
                     
-                    container.appendChild(navItem);
+                    // Вставляем перед кнопкой выхода, если она есть
+                    if (logoutButton) {
+                        container.insertBefore(navItem, logoutButton);
+                    } else {
+                        container.appendChild(navItem);
+                    }
                 }
             });
         });
@@ -74,6 +83,8 @@ class MenuManager {
         userInfoElements.forEach(element => {
             element.textContent = `${user.full_name} (${user.roleName})`;
         });
+        
+        // НЕ сохраняем в localStorage - это делает auth.js
     }
 
     showAllMenuItems() {

@@ -49,6 +49,7 @@
     <script src="/modules/shared/utils.js"></script>
     <script src="/modules/shared/theme.js"></script>
     <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/shared/menu.js"></script>
     <script src="/modules/auth/auth.js"></script>
 
     <script>
@@ -63,6 +64,11 @@
 
             // Инициализируем навигацию
             await window.navigationModule.init();
+            
+            // Инициализируем меню
+            if (window.MenuManager) {
+                await window.MenuManager.initForPage();
+            }
             
             // Отображаем информацию о пользователе
             const user = authModule.getCurrentUser();

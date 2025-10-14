@@ -888,6 +888,12 @@ tr.highlight td {
     max-height: none;
 }
 
+/* Специальная модалка для пользователей с 5 полями */
+.modal:has(.user-modal-grid) {
+    width: 700px;
+    max-width: calc(100vw - var(--spacing-2xl));
+}
+
 /* Поиск клиентов */
 .client-search-container {
     position: relative;

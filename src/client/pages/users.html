@@ -67,7 +67,7 @@
     <div class="overlay" id="overlayAddUser">
         <div class="modal">
             <h3>Добавить пользователя</h3>
-            <div class="modal-grid">
+            <div class="modal-grid user-modal-grid">
                 <div class="field">
                     <label class="label">ФИО</label>
                     <input type="text" id="addUserFullName" class="input" placeholder="Введите ФИО" />
@@ -104,7 +104,7 @@
     <div class="overlay" id="overlayEditUser">
         <div class="modal">
             <h3>Редактировать пользователя</h3>
-            <div class="modal-grid">
+            <div class="modal-grid user-modal-grid">
                 <div class="field">
                     <label class="label">ФИО</label>
                     <input type="text" id="editUserFullName" class="input" placeholder="Введите ФИО" />
@@ -142,6 +142,7 @@
     <script src="/modules/shared/utils.js"></script>
     <script src="/modules/shared/theme.js"></script>
     <script src="/modules/shared/navigation.js"></script>
+    <script src="/modules/shared/menu.js"></script>
     <script src="/modules/auth/auth.js"></script>
     <script src="/modules/users/users.js"></script>
 
@@ -151,6 +152,11 @@
             console.log('👥 Инициализация страницы пользователей');
             
             try {
+                // Инициализируем меню
+                if (window.MenuManager) {
+                    await window.MenuManager.initForPage();
+                }
+                
                 await usersModule.init();
                 console.log('✅ Модуль пользователей инициализирован успешно');
             } catch (error) {
@@ -196,5 +202,6 @@
             await initializePage();
         });
     </script>
+
 </body>
 </html>
