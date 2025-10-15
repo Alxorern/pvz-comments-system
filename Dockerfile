@@ -17,7 +17,6 @@ RUN mkdir -p /app/data && chmod 755 /app/data
 
 # Установка переменных окружения
 ENV NODE_ENV=production
-ENV DATABASE_PATH=/app/data/billing.db
 
 # Открытие порта
 EXPOSE 3000

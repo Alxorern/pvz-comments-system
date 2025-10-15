@@ -23,7 +23,7 @@
 - [x] `ADMIN_PASSWORD` - пароль администратора
 - [x] `SUPERUSER_USERNAME` - логин superuser
 - [x] `SUPERUSER_PASSWORD` - пароль superuser
-- [x] `DATABASE_PATH` - путь к БД (по умолчанию: `/app/data/billing.db`)
+- [x] Volume монтирование в `/app/data/` для базы данных
 
 ### 4. Скрипты и конфигурация
 - [x] Обновлен `package.json` - скрипт `start` включает инициализацию БД и миграции
@@ -39,6 +39,7 @@
 1. Убедитесь, что все переменные окружения установлены в Railway
 2. Проверьте, что `GOOGLE_CREDENTIALS` содержит валидный JSON
 3. Установите безопасные пароли для admin и superuser
+4. **Настройте volume монтирование** в `/app/data/` для базы данных
 
 ### 2. Деплой
 1. Зафиксируйте все изменения в git

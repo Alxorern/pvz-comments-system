@@ -6,7 +6,7 @@
 - `GOOGLE_CREDENTIALS` - JSON строка с учетными данными Google Cloud Service Account
 
 ### База данных
-- `DATABASE_PATH` - путь к файлу базы данных (по умолчанию: `/app/data/billing.db`)
+- База данных автоматически создается в `/app/data/billing.db` (volume монтирование)
 
 ### JWT
 - `JWT_SECRET` - секретный ключ для JWT токенов (по умолчанию: `billing-system-secret-key-2025`)
@@ -34,6 +34,8 @@ ADMIN_PASSWORD=your-secure-admin-password
 SUPERUSER_USERNAME=superuser
 SUPERUSER_PASSWORD=your-secure-superuser-password
 ```
+
+**Важно:** Убедитесь, что в Railway настроен volume монтирование в `/app/data/`
 
 ## Роли пользователей
 

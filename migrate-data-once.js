@@ -1,7 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = process.env.DATABASE_PATH || '/app/data/billing.db';
+const dbPath = '/app/data/billing.db';
 
 async function migrateDataOnce() {
     return new Promise((resolve, reject) => {
