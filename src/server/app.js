@@ -78,13 +78,36 @@ app.use(generalLimiter);
 
 // CORS Security
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
+
+// Автоматически добавляем Railway домены
+if (process.env.RAILWAY_STATIC_URL) {
+  allowedOrigins.push(process.env.RAILWAY_STATIC_URL);
+}
+if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+  allowedOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+}
+
+console.log('🌐 Разрешенные CORS origins:', allowedOrigins);
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Разрешаем запросы без origin (например, Postman, мобильные приложения)
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    // Проверяем, есть ли origin в списке разрешенных
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    
+    // Для Railway автоматически разрешаем поддомены railway.app
+    if (origin.includes('.railway.app')) {
+      return callback(null, true);
+    }
+    
+    console.log('❌ CORS заблокирован для origin:', origin);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   optionsSuccessStatus: 200
