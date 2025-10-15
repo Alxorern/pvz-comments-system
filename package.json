@@ -8,7 +8,7 @@
     "npm": ">=8.0.0"
   },
   "scripts": {
-    "start": "node server-modular.js",
+    "start": "node init-db.js && node run-migrations.js && node server-modular.js",
     "dev": "nodemon server-modular.js",
     "build": "echo 'No build step required'",
     "test": "echo \"Error: no test specified\" && exit 1"

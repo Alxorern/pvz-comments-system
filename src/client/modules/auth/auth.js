@@ -209,7 +209,7 @@ class AuthModule {
 
       if (response.ok) {
         const userInfo = await response.json();
-        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+        // НЕ сохраняем userInfo в localStorage - используем только 'user'
         return userInfo;
       } else {
         console.error('Ошибка получения информации о пользователе');

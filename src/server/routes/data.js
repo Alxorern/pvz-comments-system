@@ -14,7 +14,7 @@ function getSortExpression(sortBy, sortOrder) {
   const pvzFields = [
     'pvz_id', 'region', 'address', 'service_name', 'status_date',
     'status_name', 'company_name', 'transaction_date', 'transaction_amount',
-    'company_phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at'
+    'phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at'
   ];
   
   // Поля дат, которые нужно сортировать как даты
@@ -105,7 +105,7 @@ router.get('/pvz', authenticateToken, addMenuPermissions, async (req, res) => {
     const db = database.getDb();
     
     let query = `
-      SELECT p.*, c.company_name, c.phone as company_phone 
+      SELECT p.*, c.company_name
       FROM pvz p 
       LEFT JOIN companies c ON p.company_id = c.company_id
     `;
@@ -117,10 +117,27 @@ router.get('/pvz', authenticateToken, addMenuPermissions, async (req, res) => {
     let params = [];
     let whereConditions = [];
     
-    // Фильтрация по компании пользователя (если не admin)
-    if (req.user.roleName !== 'admin' && req.user.companyId) {
-      whereConditions.push('p.company_id = ?');
-      params.push(req.user.companyId);
+    // Логика фильтрации по ролям
+    if (req.user.roleName === 'admin') {
+      // Admin видит все записи - никаких дополнительных фильтров
+    } else if (req.user.roleName === 'superuser') {
+      // Superuser видит записи только если у него выбрана компания
+      if (req.user.companyId) {
+        whereConditions.push('p.company_id = ?');
+        params.push(req.user.companyId);
+      } else {
+        // Если у superuser нет компании, не показываем ничего
+        whereConditions.push('1 = 0');
+      }
+    } else {
+      // Обычные пользователи видят записи своей компании
+      if (req.user.companyId) {
+        whereConditions.push('p.company_id = ?');
+        params.push(req.user.companyId);
+      } else {
+        // Если у пользователя нет компании, не показываем ничего
+        whereConditions.push('1 = 0');
+      }
     }
     
     if (search) {
@@ -180,10 +197,12 @@ router.get('/pvz', authenticateToken, addMenuPermissions, async (req, res) => {
 /**
  * GET /api/data/pvz-with-comments - Получить данные ПВЗ с последними комментариями
  */
-router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegions, async (req, res) => {
+router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addMenuPermissions, addUserRegions, async (req, res) => {
   try {
     console.log('📊 Запрос pvz-with-comments:', req.query);
     console.log('👤 Пользователь:', req.user);
+    console.log('🔍 Роль пользователя:', req.user.roleName);
+    console.log('🔍 ID компании пользователя:', req.user.companyId);
     
     const db = database.getDb();
     console.log('🗄️ Соединение с БД получено');
@@ -199,7 +218,7 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegio
     const allowedSortColumns = [
       'pvz_id', 'region', 'address', 'service_name', 'status_date',
       'status_name', 'company_name', 'transaction_date', 'transaction_amount',
-      'company_phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at',
+      'phone', 'postal_code', 'fitting_room', 'created_at', 'updated_at',
       'last_comment', 'comment_author', 'comment_date'
     ];
     const sortBy = allowedSortColumns.includes(req.query.sortBy) ? req.query.sortBy : 'updated_at';
@@ -224,35 +243,60 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegio
       params.push(`%${pvzId}%`);
     }
     
-    // Фильтрация по регионам в зависимости от роли пользователя
-    if (req.userRole === 'admin') {
-      // Администратор видит все регионы, но может фильтровать по выбранным
+    // Логика фильтрации по ролям и регионам
+    if (req.user.roleName === 'admin') {
+      // Admin видит все записи, но может фильтровать по выбранным регионам
       if (regions.length > 0) {
         const placeholders = regions.map(() => '?').join(',');
         whereConditions.push(`p.region IN (${placeholders})`);
         params.push(...regions);
       }
       // Если admin не выбрал регионы, показываем все (без дополнительных условий)
-    } else {
-      // Обычные пользователи видят только свои регионы
-      if (req.userRegions && req.userRegions.length > 0) {
-        const placeholders = req.userRegions.map(() => '?').join(',');
-        whereConditions.push(`p.region IN (${placeholders})`);
-        params.push(...req.userRegions);
+    } else if (req.user.roleName === 'superuser') {
+      // Superuser видит записи только своей компании, независимо от региона
+      if (req.user.companyId) {
+        whereConditions.push('p.company_id = ?');
+        params.push(req.user.companyId);
         
-        // Если пользователь выбрал конкретные регионы, фильтруем по ним
+        // Superuser может дополнительно фильтровать по регионам
         if (regions.length > 0) {
-          const filteredRegions = regions.filter(region => req.userRegions.includes(region));
-          if (filteredRegions.length > 0) {
-            whereConditions.pop(); // Удаляем предыдущее условие
-            params.splice(-req.userRegions.length); // Удаляем предыдущие параметры
-            const placeholders = filteredRegions.map(() => '?').join(',');
-            whereConditions.push(`p.region IN (${placeholders})`);
-            params.push(...filteredRegions);
-          }
+          const placeholders = regions.map(() => '?').join(',');
+          whereConditions.push(`p.region IN (${placeholders})`);
+          params.push(...regions);
         }
       } else {
-        // Если у пользователя нет регионов, не показываем ничего
+        // Если у superuser нет компании, не показываем ничего
+        whereConditions.push('1 = 0');
+      }
+    } else {
+      // Обычные пользователи видят записи своей компании + фильтр по регионам роли
+      if (req.user.companyId) {
+        whereConditions.push('p.company_id = ?');
+        params.push(req.user.companyId);
+        
+        // Дополнительно фильтруем по регионам роли
+        if (req.userRegions && req.userRegions.length > 0) {
+          const placeholders = req.userRegions.map(() => '?').join(',');
+          whereConditions.push(`p.region IN (${placeholders})`);
+          params.push(...req.userRegions);
+          
+          // Если пользователь выбрал конкретные регионы, фильтруем по ним
+          if (regions.length > 0) {
+            const filteredRegions = regions.filter(region => req.userRegions.includes(region));
+            if (filteredRegions.length > 0) {
+              whereConditions.pop(); // Удаляем предыдущее условие
+              params.splice(-req.userRegions.length); // Удаляем предыдущие параметры
+              const placeholders = filteredRegions.map(() => '?').join(',');
+              whereConditions.push(`p.region IN (${placeholders})`);
+              params.push(...filteredRegions);
+            }
+          }
+        } else {
+          // Если у пользователя нет регионов, не показываем ничего
+          whereConditions.push('1 = 0');
+        }
+      } else {
+        // Если у пользователя нет компании, не показываем ничего
         whereConditions.push('1 = 0');
       }
     }
@@ -269,13 +313,14 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegio
     
     const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
     
-    // Запрос с LEFT JOIN для получения последнего комментария для каждого ПВЗ
+    // Запрос с LEFT JOIN для получения последнего комментария для каждого ПВЗ и данных компании
     const baseQuery = `
       SELECT 
         p.*,
         c.comment as last_comment,
         c.created_by as comment_author,
-        c.created_at as comment_date
+        c.created_at as comment_date,
+        comp.company_name
       FROM pvz p
       LEFT JOIN (
         SELECT 
@@ -297,6 +342,7 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addUserRegio
           WHERE c3.pvz_id = c1.pvz_id AND c3.created_at = c2.max_date
         )
       ) c ON p.pvz_id = c.pvz_id
+      LEFT JOIN companies comp ON p.company_id = comp.company_id
       ${whereClause}
       ORDER BY ${getSortExpression(sortBy, sortOrder)}
     `;
@@ -686,6 +732,9 @@ router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, as
     const { filters } = req.body;
     
     console.log('📊 Экспорт данных с фильтрами:', filters);
+    console.log('👤 Пользователь:', req.user);
+    console.log('🔍 Роль пользователя:', req.user.roleName);
+    console.log('🔍 ID компании пользователя:', req.user.companyId);
     
     const db = database.getDb();
     if (!db) {
@@ -708,40 +757,60 @@ router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, as
       params.push(`%${pvzId}%`);
     }
     
-    // Фильтрация по компании пользователя (если не admin)
-    if (req.user.roleName !== 'admin' && req.user.companyId) {
-      whereConditions.push('p.company_id = ?');
-      params.push(req.user.companyId);
-    }
-    
-    // Фильтрация по регионам в зависимости от роли пользователя
-    if (req.userRole === 'admin') {
-      // Администратор видит все регионы, но может фильтровать по выбранным
+    // Логика фильтрации по ролям и регионам (аналогично /pvz-with-comments)
+    if (req.user.roleName === 'admin') {
+      // Admin видит все записи, но может фильтровать по выбранным регионам
       if (regions.length > 0) {
         const placeholders = regions.map(() => '?').join(',');
         whereConditions.push(`p.region IN (${placeholders})`);
         params.push(...regions);
       }
-    } else {
-      // Обычные пользователи видят только свои регионы
-      if (req.userRegions && req.userRegions.length > 0) {
-        const placeholders = req.userRegions.map(() => '?').join(',');
-        whereConditions.push(`p.region IN (${placeholders})`);
-        params.push(...req.userRegions);
+      // Если admin не выбрал регионы, показываем все (без дополнительных условий)
+    } else if (req.user.roleName === 'superuser') {
+      // Superuser видит записи только своей компании, независимо от региона
+      if (req.user.companyId) {
+        whereConditions.push('p.company_id = ?');
+        params.push(req.user.companyId);
         
-        // Если пользователь выбрал конкретные регионы, фильтруем по ним
+        // Superuser может дополнительно фильтровать по регионам
         if (regions.length > 0) {
-          const filteredRegions = regions.filter(region => req.userRegions.includes(region));
-          if (filteredRegions.length > 0) {
-            whereConditions.pop(); // Удаляем предыдущее условие
-            params.splice(-req.userRegions.length); // Удаляем предыдущие параметры
-            const placeholders = filteredRegions.map(() => '?').join(',');
-            whereConditions.push(`p.region IN (${placeholders})`);
-            params.push(...filteredRegions);
-          }
+          const placeholders = regions.map(() => '?').join(',');
+          whereConditions.push(`p.region IN (${placeholders})`);
+          params.push(...regions);
         }
       } else {
-        // Если у пользователя нет регионов, не показываем ничего
+        // Если у superuser нет компании, не показываем ничего
+        whereConditions.push('1 = 0');
+      }
+    } else {
+      // Обычные пользователи видят записи своей компании + фильтр по регионам роли
+      if (req.user.companyId) {
+        whereConditions.push('p.company_id = ?');
+        params.push(req.user.companyId);
+        
+        // Дополнительно фильтруем по регионам роли
+        if (req.userRegions && req.userRegions.length > 0) {
+          const placeholders = req.userRegions.map(() => '?').join(',');
+          whereConditions.push(`p.region IN (${placeholders})`);
+          params.push(...req.userRegions);
+          
+          // Если пользователь выбрал конкретные регионы, фильтруем по ним
+          if (regions.length > 0) {
+            const filteredRegions = regions.filter(region => req.userRegions.includes(region));
+            if (filteredRegions.length > 0) {
+              whereConditions.pop(); // Удаляем предыдущее условие
+              params.splice(-req.userRegions.length); // Удаляем предыдущие параметры
+              const placeholders = filteredRegions.map(() => '?').join(',');
+              whereConditions.push(`p.region IN (${placeholders})`);
+              params.push(...filteredRegions);
+            }
+          }
+        } else {
+          // Если у пользователя нет регионов, не показываем ничего
+          whereConditions.push('1 = 0');
+        }
+      } else {
+        // Если у пользователя нет компании, не показываем ничего
         whereConditions.push('1 = 0');
       }
     }
@@ -758,6 +827,10 @@ router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, as
     
     const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
     
+    console.log('🔍 WHERE условия для экспорта:', whereConditions);
+    console.log('🔍 Параметры для экспорта:', params);
+    console.log('🔍 WHERE clause:', whereClause);
+    
     // Получаем все данные для экспорта
     const baseQuery = `
       SELECT 
@@ -770,7 +843,7 @@ router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, as
         comp.company_name,
         p.transaction_date,
         p.transaction_amount,
-        comp.phone,
+        p.phone,
         p.postal_code,
         p.fitting_room,
         c.comment as last_comment,
@@ -856,6 +929,54 @@ router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, as
       'Кто комментировал',
       'Когда комментировал'
     ];
+    
+    // Создаем общий лист со всеми данными (первый лист)
+    const allDataSheet = [
+      headers, // Заголовки
+      ...rows.map(row => [
+        row.pvz_id || '',
+        row.region || '',
+        row.address || '',
+        row.service_name || '',
+        row.status_date || '',
+        row.status_name || '',
+        row.company_name || '',
+        row.transaction_date || '',
+        row.transaction_amount || '',
+        row.phone || '',
+        row.postal_code || '',
+        row.fitting_room || '',
+        row.last_comment || '',
+        row.comment_author || '',
+        row.comment_date || ''
+      ])
+    ];
+    
+    // Создаем общий лист
+    const allDataWorksheet = XLSX.utils.aoa_to_sheet(allDataSheet);
+    
+    // Настраиваем ширину колонок для общего листа
+    const colWidths = [
+      { wch: 12 }, // ID ПВЗ
+      { wch: 20 }, // Регион
+      { wch: 40 }, // Адрес
+      { wch: 25 }, // Наименование сервиса
+      { wch: 15 }, // Дата статуса
+      { wch: 20 }, // Наименование статуса
+      { wch: 30 }, // Наименование компании
+      { wch: 15 }, // Дата транзакции
+      { wch: 20 }, // Сумма транзакции
+      { wch: 15 }, // Телефон
+      { wch: 10 }, // Индекс
+      { wch: 12 }, // Примерочная
+      { wch: 30 }, // Последний комментарий
+      { wch: 20 }, // Кто комментировал
+      { wch: 20 }  // Когда комментировал
+    ];
+    allDataWorksheet['!cols'] = colWidths;
+    
+    // Добавляем общий лист в книгу (первым)
+    XLSX.utils.book_append_sheet(workbook, allDataWorksheet, 'Все данные');
     
     // Создаем лист для каждого региона
     Object.keys(dataByRegion).forEach(region => {

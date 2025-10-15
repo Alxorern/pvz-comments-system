@@ -8,6 +8,7 @@ class GoogleSheetsService {
     this.settingsCache = null;
     this.settingsCacheTime = 0;
     this.settingsCacheTimeout = 5 * 60 * 1000; // 5 минут
+    this.companyNameToId = new Map(); // Кэш для соответствия названий компаний и их ID
   }
 
   /**
@@ -266,7 +267,7 @@ class GoogleSheetsService {
         // Получаем или создаем компанию
         const companyName = (row['Наименование компании'] || '').toString();
         const companyPhone = (row['Телефон'] || '').toString();
-        const companyId = await this.getOrCreateCompany(db, companyName, companyPhone);
+        const companyId = await this.getOrCreateCompany(db, companyName);
         
         validPvzData.push({
           pvz_id: cleanPvzId,
@@ -279,7 +280,8 @@ class GoogleSheetsService {
           transaction_date: (row['Дата транзакции'] || '').toString(),
           transaction_amount: transactionAmount.toString(), // Сохраняем как строку
           postal_code: (row['Индекс'] || '').toString(),
-          fitting_room: (row['Примерочная'] || '').toString()
+          fitting_room: (row['Примерочная'] || '').toString(),
+          phone: companyPhone // Телефон из Google Sheets идет в таблицу pvz
         });
       }
 
@@ -329,6 +331,9 @@ class GoogleSheetsService {
         updatedCount = updatedCount;
         console.log(`⚠️ Fallback UPSERT: ${insertedCount} новых, ${updatedCount} обновленных записей`);
       }
+
+      // Синхронизируем регионы
+      await this.syncRegions(db);
 
       // Обновляем время последней синхронизации
       await new Promise((resolve, reject) => {
@@ -393,54 +398,102 @@ class GoogleSheetsService {
   async batchUpsertPvz(db, records) {
     if (records.length === 0) return { inserted: 0, updated: 0 };
 
-    const upsertSQL = `
-      INSERT OR REPLACE INTO pvz (
+    const insertSQL = `
+      INSERT OR IGNORE INTO pvz (
         pvz_id, region, address, service_name, status_date,
         status_name, company_id, transaction_date, transaction_amount,
-        postal_code, fitting_room, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        postal_code, fitting_room, phone, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `;
+
+    const updateSQL = `
+      UPDATE pvz SET 
+        region = ?, address = ?, service_name = ?, status_date = ?,
+        status_name = ?, company_id = ?, transaction_date = ?,
+        transaction_amount = ?, postal_code = ?, fitting_room = ?, phone = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE pvz_id = ?
     `;
 
     return new Promise((resolve, reject) => {
       db.serialize(() => {
         db.run('BEGIN TRANSACTION');
         
-        const stmt = db.prepare(upsertSQL);
+        const insertStmt = db.prepare(insertSQL);
+        const updateStmt = db.prepare(updateSQL);
         let completed = 0;
+        let inserted = 0;
+        let updated = 0;
         let hasError = false;
         
         for (const record of records) {
-          stmt.run([
+          // Сначала пытаемся вставить (если записи нет, она будет вставлена)
+          insertStmt.run([
             record.pvz_id, record.region, record.address, record.service_name,
             record.status_date, record.status_name, record.company_id,
             record.transaction_date, record.transaction_amount,
-            record.postal_code, record.fitting_room
+            record.postal_code, record.fitting_room, record.phone
           ], function(err) {
             if (err && !hasError) {
               hasError = true;
-              console.error('❌ Ошибка batch UPSERT:', err);
-              stmt.finalize(() => {
-                db.run('ROLLBACK', () => {
-                  reject(err);
-                });
+              console.error('❌ Ошибка batch INSERT:', err);
+              insertStmt.finalize();
+              updateStmt.finalize();
+              db.run('ROLLBACK', () => {
+                reject(err);
               });
               return;
             }
             
-            completed++;
-            if (completed === records.length && !hasError) {
-              stmt.finalize((err) => {
-                if (err) {
-                  db.run('ROLLBACK', () => {
+            // Если вставка прошла успешно (changes > 0), значит это новая запись
+            if (this.changes > 0) {
+              inserted++;
+              completed++;
+              if (completed === records.length && !hasError) {
+                insertStmt.finalize();
+                updateStmt.finalize();
+                db.run('COMMIT', (err) => {
+                  if (err) {
                     reject(err);
+                  } else {
+                    console.log(`📊 Batch UPSERT завершен: ${inserted} новых, ${updated} обновленных записей`);
+                    resolve({ inserted, updated });
+                  }
+                });
+              }
+            } else {
+              // Если вставка не произошла (запись уже существует), обновляем
+              updateStmt.run([
+                record.region, record.address, record.service_name, record.status_date,
+                record.status_name, record.company_id, record.transaction_date,
+                record.transaction_amount, record.postal_code, record.fitting_room,
+                record.phone, record.pvz_id
+              ], function(updateErr) {
+                if (updateErr && !hasError) {
+                  hasError = true;
+                  console.error('❌ Ошибка batch UPDATE:', updateErr);
+                  insertStmt.finalize();
+                  updateStmt.finalize();
+                  db.run('ROLLBACK', () => {
+                    reject(updateErr);
                   });
-                } else {
+                  return;
+                }
+                
+                if (this.changes > 0) {
+                  updated++;
+                }
+                
+                completed++;
+                if (completed === records.length && !hasError) {
+                  insertStmt.finalize();
+                  updateStmt.finalize();
                   db.run('COMMIT', (err) => {
                     if (err) {
                       reject(err);
                     } else {
-                      // Возвращаем приблизительную статистику
-                      resolve({ inserted: Math.floor(records.length * 0.1), updated: Math.floor(records.length * 0.9) });
+                      console.log(`📊 Batch UPSERT завершен: ${inserted} новых, ${updated} обновленных записей`);
+                      resolve({ inserted, updated });
                     }
                   });
                 }
@@ -460,8 +513,8 @@ class GoogleSheetsService {
       INSERT OR REPLACE INTO pvz (
         pvz_id, region, address, service_name, status_date,
         status_name, company_id, transaction_date, transaction_amount,
-        postal_code, fitting_room, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        postal_code, fitting_room, phone, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     return new Promise((resolve, reject) => {
@@ -469,7 +522,7 @@ class GoogleSheetsService {
         record.pvz_id, record.region, record.address, record.service_name,
         record.status_date, record.status_name, record.company_id,
         record.transaction_date, record.transaction_amount,
-        record.postal_code, record.fitting_room
+        record.postal_code, record.fitting_room, record.phone
       ], function(err) {
         if (err) reject(err);
         else resolve(this.changes);
@@ -528,7 +581,7 @@ class GoogleSheetsService {
   /**
    * Получить или создать компанию
    */
-  async getOrCreateCompany(db, companyName, companyPhone) {
+  async getOrCreateCompany(db, companyName) {
     if (!companyName || companyName.trim() === '') {
       return null;
     }
@@ -536,12 +589,12 @@ class GoogleSheetsService {
     // Нормализуем название компании
     const normalizedName = companyName.trim().replace(/\s+/g, ' ');
     
-    // Локальный кэш, чтобы в рамках одной синхронизации не создавать дублей
-    if (!this.companyNameToId) {
-      this.companyNameToId = new Map();
-    }
-    if (this.companyNameToId.has(normalizedName)) {
-      return this.companyNameToId.get(normalizedName);
+    // Сохраняем ссылку на this для использования в колбэках
+    const self = this;
+    
+    // Проверяем кэш, чтобы в рамках одной синхронизации не создавать дублей
+    if (self.companyNameToId.has(normalizedName)) {
+      return self.companyNameToId.get(normalizedName);
     }
 
     return new Promise((resolve, reject) => {
@@ -556,7 +609,7 @@ class GoogleSheetsService {
           }
 
           if (row) {
-            this.companyNameToId.set(normalizedName, row.company_id);
+            self.companyNameToId.set(normalizedName, row.company_id);
             resolve(row.company_id);
             return;
           }
@@ -578,10 +631,10 @@ class GoogleSheetsService {
                 const nextId = (maxRow?.max_id || 0) + 1;
                 const companyId = String(nextId).padStart(6, '0');
 
-                // Вставляем с защитой от дублей по названию
+                // Вставляем с защитой от дублей по названию (phone остается пустым для новых компаний)
                 db.run(
                   'INSERT OR IGNORE INTO companies (company_id, company_name, phone) VALUES (?, ?, ?)',
-                  [companyId, normalizedName, (companyPhone || '').trim()],
+                  [companyId, normalizedName, null],
                   function(err) {
                     if (err) {
                       db.run('ROLLBACK');
@@ -601,7 +654,7 @@ class GoogleSheetsService {
 
                       db.run('COMMIT');
                       const finalId = fetched?.company_id || companyId;
-                      this.companyNameToId.set(normalizedName, finalId);
+                      self.companyNameToId.set(normalizedName, finalId);
                       if (fetched) {
                         resolve(finalId);
                       } else {
@@ -617,6 +670,62 @@ class GoogleSheetsService {
         }
       );
     });
+  }
+
+  /**
+   * Синхронизация регионов из таблицы pvz в таблицу regions
+   */
+  async syncRegions(db) {
+    console.log('🌍 Синхронизируем регионы...');
+    
+    try {
+      // Получаем уникальные регионы из таблицы pvz
+      const regions = await new Promise((resolve, reject) => {
+        db.all(`
+          SELECT DISTINCT region 
+          FROM pvz 
+          WHERE region IS NOT NULL AND region != '' 
+          ORDER BY region
+        `, [], (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+
+      console.log(`📊 Найдено ${regions.length} уникальных регионов`);
+
+      // Вставляем регионы в таблицу regions
+      for (const regionRow of regions) {
+        const regionName = regionRow.region;
+        
+        // Проверяем, существует ли уже такой регион
+        const existing = await new Promise((resolve, reject) => {
+          db.get('SELECT id FROM regions WHERE name = ?', [regionName], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
+        });
+
+        if (!existing) {
+          // Создаем новый регион
+          await new Promise((resolve, reject) => {
+            db.run('INSERT INTO regions (name, created_at) VALUES (?, CURRENT_TIMESTAMP)', 
+              [regionName], function(err) {
+                if (err) reject(err);
+                else {
+                  console.log(`✅ Создан регион: ${regionName} (ID: ${this.lastID})`);
+                  resolve();
+                }
+              });
+          });
+        }
+      }
+
+      console.log('✅ Синхронизация регионов завершена');
+    } catch (error) {
+      console.error('❌ Ошибка синхронизации регионов:', error);
+      // Не прерываем основную синхронизацию из-за ошибки регионов
+    }
   }
 }
 

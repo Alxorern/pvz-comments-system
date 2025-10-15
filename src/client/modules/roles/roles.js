@@ -27,8 +27,7 @@ class RolesModule {
       console.log('🎨 Отображаем роли...');
       this.renderRoles();
       
-      console.log('👤 Инициализируем информацию о пользователе...');
-      this.initUserInfo();
+      // Информация о пользователе теперь управляется через MenuManager
       
       console.log('✅ Модуль ролей инициализирован успешно');
     } catch (error) {
@@ -41,18 +40,11 @@ class RolesModule {
 
   /**
    * Инициализация информации о пользователе
+   * УДАЛЕНО - теперь управляется через MenuManager
    */
   initUserInfo() {
-    const userInfo = document.getElementById('userInfo');
-    if (userInfo) {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (user.full_name) {
-        userInfo.innerHTML = `
-          <span class="user-name">${user.full_name}</span>
-          <span class="user-role">${user.role || 'Пользователь'}</span>
-        `;
-      }
-    }
+    // Информация о пользователе теперь управляется через MenuManager
+    // Этот метод оставлен для совместимости, но не выполняет никаких действий
   }
 
   /**
@@ -289,11 +281,19 @@ class RolesModule {
       return;
     }
 
+    // Проверяем, что регионы загружены
+    if (!this.cache.regions || this.cache.regions.length === 0) {
+      console.warn('⚠️ Регионы не загружены, пытаемся загрузить...');
+      this.loadData();
+      return;
+    }
+
     const filteredRegions = this.cache.regions.filter(region => 
       region.name.toLowerCase().includes(query.toLowerCase()) &&
       !this.selectedRegions.some(selected => selected.id === region.id)
     );
 
+    console.log(`🔍 Найдено регионов для "${query}":`, filteredRegions.length);
     this.updateRegionSuggestions(filteredRegions);
   }
 

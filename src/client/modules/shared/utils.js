@@ -105,19 +105,11 @@ function escapeHtml(text) {
 
 /**
  * Инициализация информации о пользователе в боковой панели
+ * УДАЛЕНО - теперь управляется через MenuManager
  */
 function initializeUserInfo() {
-  const user = authModule.getCurrentUser();
-  if (user) {
-    const userInfoEl = document.getElementById('userInfo');
-    if (userInfoEl) {
-      const userNameEl = userInfoEl.querySelector('.user-name');
-      const userRoleEl = userInfoEl.querySelector('.user-role');
-      
-      if (userNameEl) userNameEl.textContent = user.full_name || user.login;
-      if (userRoleEl) userRoleEl.textContent = user.role || '';
-    }
-  }
+  // Информация о пользователе теперь управляется через MenuManager
+  // Эта функция оставлена для совместимости, но не выполняет никаких действий
 }
 
 /**

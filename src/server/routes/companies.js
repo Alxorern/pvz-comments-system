@@ -73,7 +73,7 @@ router.get('/all', authenticateToken, requireAdminOrSuperuser, async (req, res) 
     const db = database.getDb();
     
     const rows = await new Promise((resolve, reject) => {
-      db.all('SELECT company_id, company_name FROM companies ORDER BY company_name ASC', [], (err, rows) => {
+      db.all('SELECT id, company_id, company_name, phone FROM companies ORDER BY company_name ASC', [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });

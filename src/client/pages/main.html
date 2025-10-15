@@ -12,21 +12,43 @@
         <div class="sidebar">
             <div class="brand">
                 <div class="comment-icon">💬</div>
-                ПВЗ Комментарии
-            </div>
-            <div class="nav">
-                <a href="/pvz" class="nav-item">Список ПВЗ</a>
-                <a href="/companies" class="nav-item">Компании</a>
-                <a href="/users" class="nav-item">Пользователи</a>
-                <a href="/roles" class="nav-item">Роли</a>
-                <a href="/settings" class="nav-item">Настройки</a>
-            </div>
-            <div class="sidebar-bottom">
+                <div>ПВЗ Комментарии</div>
                 <button class="theme-toggle" id="themeToggle">
                     <span class="theme-toggle-icon">🌙</span>
                     <span class="theme-toggle-text">Темная тема</span>
                 </button>
-                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
+            </div>
+            <div class="nav">
+                <a href="/pvz" class="nav-item">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-text">Список ПВЗ</span>
+                </a>
+                <a href="/companies" class="nav-item">
+                    <span class="nav-icon">🏢</span>
+                    <span class="nav-text">Компании</span>
+                </a>
+                <a href="/roles" class="nav-item">
+                    <span class="nav-icon">🔐</span>
+                    <span class="nav-text">Роли</span>
+                </a>
+                <a href="/users" class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Пользователи</span>
+                </a>
+                <a href="/settings" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Настройки</span>
+                </a>
+            </div>
+            <div class="sidebar-bottom">
+                <button id="btnLogout" class="nav-item">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">Выход</span>
+                </button>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name">Загрузка...</span>
+                    <span class="user-role"></span>
+                </div>
             </div>
         </div>
 
@@ -35,7 +57,6 @@
             <div class="card">
                 <div class="toolbar">
                     <div class="spacer"></div>
-                    <span id="userInfo" class="user-info">Перенаправление...</span>
                 </div>
                 <p class="welcome-text">
                     Добро пожаловать в систему! Используйте навигацию для перехода к нужному разделу.
@@ -65,15 +86,9 @@
             // Инициализируем навигацию
             await window.navigationModule.init();
             
-            // Инициализируем меню
+            // Инициализируем меню (включая информацию о пользователе)
             if (window.MenuManager) {
                 await window.MenuManager.initForPage();
-            }
-            
-            // Отображаем информацию о пользователе
-            const user = authModule.getCurrentUser();
-            if (user) {
-                document.getElementById('userInfo').textContent = `${user.full_name} (${user.role})`;
             }
 
             // Кнопка выхода настраивается в модуле навигации

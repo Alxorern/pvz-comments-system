@@ -223,7 +223,7 @@ class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return response;
+      return response.json();
     } catch (error) {
       console.error('API DELETE error:', error);
       return null;

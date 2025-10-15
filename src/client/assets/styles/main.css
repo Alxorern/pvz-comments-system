@@ -387,6 +387,22 @@ p {
     flex: 1;
 }
 
+/* Заголовок боковой панели */
+.brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-primary);
+    background: var(--bg-card);
+}
+
+.brand > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Нижняя часть боковой панели */
 .sidebar-bottom {
     margin-top: auto;
@@ -396,6 +412,32 @@ p {
     flex-direction: column;
     gap: 12px;
     transition: border-color 0.3s ease;
+}
+
+/* Кнопка выхода - красная рамка, красный текст */
+#btnLogout {
+    background: transparent !important;
+    color: #dc3545 !important;
+    border: 3px solid #dc3545 !important;
+    margin-bottom: 12px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+#btnLogout:hover {
+    background: rgba(220, 53, 69, 0.1) !important;
+    border-color: #c82333 !important;
+    transform: translateY(-1px);
+}
+
+#btnLogout .nav-icon {
+    color: #dc3545 !important;
+    filter: none !important;
+}
+
+#btnLogout .nav-text {
+    color: #dc3545 !important;
+    font-weight: 700;
 }
 
 .user-info {
@@ -783,6 +825,24 @@ tr.highlight td {
 }
 
 .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
     width: 600px;
     max-width: calc(100vw - var(--spacing-2xl));
     max-height: 80vh;
@@ -3021,13 +3081,16 @@ tr.highlight td {
 }
 
 /* Пагинация */
+.pagination-container {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md) 0;
+  border-top: 1px solid var(--border-primary);
+}
+
 .pagination {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: var(--spacing-lg);
-  padding: var(--spacing-md) 0;
-  border-top: 1px solid var(--border-primary);
 }
 
 .pagination-info {
@@ -3350,6 +3413,12 @@ tr.highlight td {
   min-width: 120px;
 }
 
+/* Специальные стили для модального окна пользователей */
+.user-modal-content {
+  width: 700px !important;
+  max-width: calc(100vw - 24px);
+}
+
 /* Специальные стили для модального окна ролей */
 .overlay .regions-input-group {
   display: flex;
@@ -3535,15 +3604,26 @@ tr.highlight td {
 }
 
 .modal-body {
-  padding: 20px;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 16px 20px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-xl);
   border-top: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+/* Отступы для полей формы в модальном окне */
+.modal-body .form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.modal-body .form-group:last-child {
+  margin-bottom: 0;
 }
 
 
@@ -3806,15 +3886,17 @@ tr.highlight td {
 .theme-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
     background: transparent;
     border: 1px solid var(--border-primary);
     border-radius: 8px;
     color: var(--text-primary);
     cursor: pointer;
     transition: all 0.3s ease;
-    font-size: 14px;
+    font-size: 18px;
     font-family: inherit;
 }
 
@@ -3823,8 +3905,12 @@ tr.highlight td {
 }
 
 .theme-toggle-icon {
-    font-size: 16px;
+    font-size: 18px;
     transition: transform 0.3s ease;
+}
+
+.theme-toggle-text {
+    display: none; /* Скрываем текст, оставляем только иконку */
 }
 
 .theme-toggle[data-theme="light"] .theme-toggle-icon {

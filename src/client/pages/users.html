@@ -13,24 +13,42 @@
             <div class="brand">
                 <div class="comment-icon">💬</div>
                 <div>ПВЗ Комментарии</div>
-            </div>
-            <div class="nav">
-                <a href="/main" class="nav-item">Главная</a>
-                <a href="/users" class="nav-item active">Пользователи</a>
-                <a href="/roles" class="nav-item">Роли</a>
-                <a href="/pvz" class="nav-item">Список ПВЗ</a>
-                <a href="/settings" class="nav-item">Настройки</a>
-            </div>
-            <div class="sidebar-bottom">
                 <button class="theme-toggle" id="themeToggle">
                     <span class="theme-toggle-icon">🌙</span>
                     <span class="theme-toggle-text">Темная тема</span>
+                </button>
+            </div>
+            <div class="nav">
+                <a href="/pvz" class="nav-item">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-text">Список ПВЗ</span>
+                </a>
+                <a href="/companies" class="nav-item">
+                    <span class="nav-icon">🏢</span>
+                    <span class="nav-text">Компании</span>
+                </a>
+                <a href="/roles" class="nav-item">
+                    <span class="nav-icon">🔐</span>
+                    <span class="nav-text">Роли</span>
+                </a>
+                <a href="/users" class="nav-item active">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Пользователи</span>
+                </a>
+                <a href="/settings" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Настройки</span>
+                </a>
+            </div>
+            <div class="sidebar-bottom">
+                <button id="btnLogout" class="nav-item">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">Выход</span>
                 </button>
                 <div class="user-info" id="userInfo">
                     <span class="user-name">Загрузка...</span>
                     <span class="user-role"></span>
                 </div>
-                <button class="nav-item logout-btn" id="btnLogout">Выйти</button>
             </div>
         </nav>
 
@@ -64,10 +82,14 @@
     </div>
 
     <!-- Модальное окно создания пользователя -->
-    <div class="overlay" id="overlayAddUser">
-        <div class="modal">
-            <h3>Добавить пользователя</h3>
-            <div class="modal-grid user-modal-grid">
+    <div id="overlayAddUser" class="overlay">
+        <div class="modal-content user-modal-content">
+            <div class="modal-header">
+                <h3>Добавить пользователя</h3>
+                <span class="close" id="closeAddUserModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid user-modal-grid">
                 <div class="field">
                     <label class="label">ФИО</label>
                     <input type="text" id="addUserFullName" class="input" placeholder="Введите ФИО" />
@@ -92,8 +114,9 @@
                         <option value="">Выберите компанию</option>
                     </select>
                 </div>
+                </div>
             </div>
-            <div class="actions">
+            <div class="modal-footer">
                 <button class="btn secondary" id="btnCancelAddUser">Отмена</button>
                 <button class="btn" id="btnSubmitAddUser">Создать</button>
             </div>
@@ -101,10 +124,14 @@
     </div>
 
     <!-- Модальное окно редактирования пользователя -->
-    <div class="overlay" id="overlayEditUser">
-        <div class="modal">
-            <h3>Редактировать пользователя</h3>
-            <div class="modal-grid user-modal-grid">
+    <div id="overlayEditUser" class="overlay">
+        <div class="modal-content user-modal-content">
+            <div class="modal-header">
+                <h3>Редактировать пользователя</h3>
+                <span class="close" id="closeEditUserModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-grid user-modal-grid">
                 <div class="field">
                     <label class="label">ФИО</label>
                     <input type="text" id="editUserFullName" class="input" placeholder="Введите ФИО" />
@@ -129,8 +156,9 @@
                         <option value="">Выберите компанию</option>
                     </select>
                 </div>
+                </div>
             </div>
-            <div class="actions">
+            <div class="modal-footer">
                 <button class="btn secondary" id="btnCancelEditUser">Отмена</button>
                 <button class="btn" id="btnSubmitEditUser">Сохранить</button>
             </div>
@@ -152,10 +180,15 @@
             console.log('👥 Инициализация страницы пользователей');
             
             try {
-                // Инициализируем меню
-                if (window.MenuManager) {
-                    await window.MenuManager.initForPage();
-                }
+            // Инициализируем меню
+            if (window.MenuManager) {
+                await window.MenuManager.initForPage();
+            }
+            
+            // Инициализируем навигацию
+            if (window.navigationModule) {
+                await window.navigationModule.init();
+            }
                 
                 await usersModule.init();
                 console.log('✅ Модуль пользователей инициализирован успешно');
@@ -189,11 +222,7 @@
                 return;
             }
 
-            // Отображаем информацию о пользователе
-            const user = authModule.getCurrentUser();
-            if (user) {
-                document.getElementById('userInfo').textContent = `${user.full_name} (${user.role})`;
-            }
+            // Информация о пользователе обновляется через MenuManager
 
             // Настраиваем кнопку выхода
             // Кнопка выхода настраивается в модуле навигации

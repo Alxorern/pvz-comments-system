@@ -9,16 +9,16 @@
 <body>
     <div class="app">
         <!-- Боковая панель -->
-        <div class="sidebar">
-            <div class="sidebar-header">
+        <nav class="sidebar">
+            <div class="brand">
                 <div class="comment-icon">💬</div>
-                <h1>ПВЗ Комментарии</h1>
+                <div>ПВЗ Комментарии</div>
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
             </div>
-            <nav class="sidebar-nav">
-                <a href="/main" class="nav-item">
-                    <span class="nav-icon">🏠</span>
-                    <span class="nav-text">Главная</span>
-                </a>
+            <div class="nav">
                 <a href="/pvz" class="nav-item">
                     <span class="nav-icon">📦</span>
                     <span class="nav-text">Список ПВЗ</span>
@@ -27,53 +27,54 @@
                     <span class="nav-icon">🏢</span>
                     <span class="nav-text">Компании</span>
                 </a>
-                <a href="/users" class="nav-item">
-                    <span class="nav-icon">👥</span>
-                    <span class="nav-text">Пользователи</span>
-                </a>
                 <a href="/roles" class="nav-item">
                     <span class="nav-icon">🔐</span>
                     <span class="nav-text">Роли</span>
+                </a>
+                <a href="/users" class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Пользователи</span>
                 </a>
                 <a href="/settings" class="nav-item">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-text">Настройки</span>
                 </a>
-            </nav>
-            <div class="sidebar-footer">
-                <button id="logoutBtn" class="logout-btn">
+            </div>
+            <div class="sidebar-bottom">
+                <button id="btnLogout" class="nav-item">
                     <span class="nav-icon">🚪</span>
                     <span class="nav-text">Выход</span>
                 </button>
-            </div>
-        </div>
-
-        <!-- Основной контент -->
-        <div class="main-content">
-            <div class="content-header">
-                <h2>Управление компаниями</h2>
-                <div class="header-actions">
-                    <button id="addCompanyBtn" class="btn btn-primary">
-                        <span class="btn-icon">➕</span>
-                        Добавить компанию
-                    </button>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name">Загрузка...</span>
+                    <span class="user-role"></span>
                 </div>
             </div>
+        </nav>
 
-            <!-- Поиск и фильтры -->
-            <div class="filters-section">
-                <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Поиск по названию или телефону...">
-                    <button id="searchBtn" class="btn btn-secondary">
-                        <span class="btn-icon">🔍</span>
-                        Поиск
-                    </button>
+        <!-- Основное содержимое -->
+        <div class="content">
+            <div class="card">
+                <div class="toolbar">
+                    <div class="spacer"></div>
+                    <button class="btn" id="addCompanyBtn">Добавить компанию</button>
                 </div>
-            </div>
 
-            <!-- Таблица компаний -->
-            <div class="table-container">
-                <table class="data-table" id="companiesTable">
+                <!-- Фильтры -->
+                <div class="filters-container">
+                    <div class="filters-row">
+                        <div class="filter-group filter-company-name">
+                            <label for="companyNameFilter">Название:</label>
+                            <input type="text" id="companyNameFilter" placeholder="Поиск по названию...">
+                        </div>
+                        <div class="filter-group filter-phone">
+                            <label for="phoneFilter">Телефон:</label>
+                            <input type="text" id="phoneFilter" placeholder="Поиск по телефону...">
+                        </div>
+                    </div>
+                </div>
+
+                <table>
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -87,11 +88,11 @@
                         <!-- Данные загружаются динамически -->
                     </tbody>
                 </table>
-            </div>
-
-            <!-- Пагинация -->
-            <div class="pagination" id="pagination">
-                <!-- Пагинация загружается динамически -->
+                
+                <!-- Пагинация -->
+                <div id="pagination" class="pagination-container">
+                    <!-- Пагинация загружается динамически -->
+                </div>
             </div>
         </div>
     </div>
@@ -101,18 +102,20 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="modalTitle">Добавить компанию</h3>
-                <button class="modal-close" id="closeModal">&times;</button>
+                <button class="close" id="closeModal">&times;</button>
             </div>
             <form id="companyForm">
-                <div class="form-group">
-                    <label for="companyName">Название компании *</label>
-                    <input type="text" id="companyName" name="company_name" required>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="companyName">Название компании *</label>
+                        <input type="text" id="companyName" name="company_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="companyPhone">Телефон</label>
+                        <input type="text" id="companyPhone" name="phone">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="companyPhone">Телефон</label>
-                    <input type="text" id="companyPhone" name="phone">
-                </div>
-                <div class="form-actions">
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="cancelBtn">Отмена</button>
                     <button type="submit" class="btn btn-primary" id="saveBtn">Сохранить</button>
                 </div>
@@ -123,6 +126,44 @@
     <!-- Подключение модулей -->
     <script src="/modules/shared/api.js"></script>
     <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/menu.js"></script>
+    <script src="/modules/shared/navigation.js"></script>
     <script src="/modules/companies/companies.js"></script>
+    
+    <script>
+        // Проверка авторизации при загрузке страницы
+        document.addEventListener('DOMContentLoaded', async function() {
+            const apiClient = new ApiClient();
+            
+            // Проверяем аутентификацию
+            if (!apiClient.checkAuthAndRedirect()) {
+                console.log('❌ Пользователь не аутентифицирован, перенаправляем на логин');
+                return;
+            }
+            
+            // Инициализируем тему
+            if (window.themeModule) {
+                window.themeModule.init();
+            }
+            
+            // Инициализируем навигацию
+            if (window.navigationModule) {
+                await window.navigationModule.init();
+            }
+            
+            // Инициализируем меню
+            if (window.MenuManager) {
+                await window.MenuManager.initForPage();
+            }
+            
+            // Инициализируем модуль управления компаниями
+            if (window.companiesManager) {
+                await window.companiesManager.init();
+            }
+            
+            console.log('✅ Страница компаний загружена для аутентифицированного пользователя');
+        });
+    </script>
 </body>
 </html>

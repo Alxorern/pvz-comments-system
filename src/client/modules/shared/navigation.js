@@ -12,10 +12,14 @@ class NavigationModule {
   async init() {
     try {
       // Получаем информацию о пользователе
-      const userInfo = await window.authModule.getUserInfo();
-      if (userInfo) {
-        this.userRole = userInfo.role;
-        this.updateNavigation();
+      if (window.authModule && window.authModule.getUserInfo) {
+        const userInfo = await window.authModule.getUserInfo();
+        if (userInfo) {
+          this.userRole = userInfo.role;
+          this.updateNavigation();
+        }
+      } else {
+        console.log('⚠️ authModule не найден, пропускаем инициализацию навигации');
       }
     } catch (error) {
       console.error('❌ Ошибка инициализации навигации:', error);
@@ -69,24 +73,11 @@ class NavigationModule {
 
   /**
    * Обновляет информацию о пользователе в навигации
+   * УДАЛЕНО - теперь управляется через MenuManager
    */
   updateUserInfo() {
-    const userInfoElements = document.querySelectorAll('.user-info');
-    const userRoleElements = document.querySelectorAll('.user-role');
-    
-    const userInfo = window.authModule.getCurrentUser();
-    
-    userInfoElements.forEach(element => {
-      if (userInfo) {
-        element.textContent = userInfo.full_name || userInfo.login;
-      }
-    });
-
-    userRoleElements.forEach(element => {
-      if (userInfo) {
-        element.textContent = userInfo.role || 'Пользователь';
-      }
-    });
+    // Информация о пользователе теперь управляется через MenuManager
+    // Этот метод оставлен для совместимости, но не выполняет никаких действий
   }
 
   /**

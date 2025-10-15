@@ -41,19 +41,35 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
   
   const db = database.getDb();
   
-  // Получаем следующий user_id
-  db.get('SELECT MAX(user_id) as max_id FROM users', (err, row) => {
+  // Сначала получаем role_id по названию роли
+  db.get('SELECT id FROM roles WHERE name = ?', [role], (err, roleRow) => {
     if (err) {
-      console.error('❌ Ошибка получения максимального user_id:', err);
+      console.error('❌ Ошибка получения role_id:', err);
       res.status(500).json({ error: err.message });
       return;
     }
     
-    const next_user_id = (row.max_id || 0) + 1;
+    if (!roleRow) {
+      console.error('❌ Роль не найдена:', role);
+      res.status(400).json({ error: 'Роль не найдена' });
+      return;
+    }
     
-    db.run(
-      'INSERT INTO users (user_id, full_name, login, password_hash, role, role_id, addwho, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [next_user_id, full_name, login, password_hash, role, 1, 'admin', company_id || null],
+    const role_id = roleRow.id;
+    
+    // Получаем следующий user_id
+    db.get('SELECT MAX(user_id) as max_id FROM users', (err, row) => {
+      if (err) {
+        console.error('❌ Ошибка получения максимального user_id:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      const next_user_id = (row.max_id || 0) + 1;
+      
+      db.run(
+        'INSERT INTO users (user_id, full_name, login, password_hash, role, role_id, addwho, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [next_user_id, full_name, login, password_hash, role, role_id, 'admin', company_id || null],
       function(err) {
         if (err) {
           console.error('❌ Ошибка создания пользователя:', err);
@@ -64,6 +80,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
         res.json({ success: true, id: this.lastID, message: 'User created successfully' });
       }
     );
+    });
   });
 });
 
@@ -76,24 +93,41 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
   
   console.log('🔄 Обновление пользователя:', { id, full_name, login, role, company_id, hasPassword: !!password });
   
-  let query, params;
-  
-  if (password && password.trim() !== '') {
-    // Если пароль указан, обновляем его
-    const password_hash = bcrypt.hashSync(password, 10);
-    query = 'UPDATE users SET full_name = ?, login = ?, password_hash = ?, role = ?, company_id = ? WHERE user_id = ?';
-    params = [full_name, login, password_hash, role, company_id || null, id];
-  } else {
-    // Если пароль не указан, не обновляем его
-    query = 'UPDATE users SET full_name = ?, login = ?, role = ?, company_id = ? WHERE user_id = ?';
-    params = [full_name, login, role, company_id || null, id];
-  }
-  
-  console.log('🔍 Выполняем SQL запрос:', query);
-  console.log('🔍 Параметры:', params);
-  
   const db = database.getDb();
-  db.run(query, params, function(err) {
+  
+  // Сначала получаем role_id по названию роли
+  db.get('SELECT id FROM roles WHERE name = ?', [role], (err, roleRow) => {
+    if (err) {
+      console.error('❌ Ошибка получения role_id:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (!roleRow) {
+      console.error('❌ Роль не найдена:', role);
+      res.status(400).json({ error: 'Роль не найдена' });
+      return;
+    }
+    
+    const role_id = roleRow.id;
+    
+    let query, params;
+    
+    if (password && password.trim() !== '') {
+      // Если пароль указан, обновляем его
+      const password_hash = bcrypt.hashSync(password, 10);
+      query = 'UPDATE users SET full_name = ?, login = ?, password_hash = ?, role = ?, role_id = ?, company_id = ? WHERE user_id = ?';
+      params = [full_name, login, password_hash, role, role_id, company_id || null, id];
+    } else {
+      // Если пароль не указан, не обновляем его
+      query = 'UPDATE users SET full_name = ?, login = ?, role = ?, role_id = ?, company_id = ? WHERE user_id = ?';
+      params = [full_name, login, role, role_id, company_id || null, id];
+    }
+    
+    console.log('🔍 Выполняем SQL запрос:', query);
+    console.log('🔍 Параметры:', params);
+    
+    db.run(query, params, function(err) {
     if (err) {
       console.error('❌ Ошибка обновления пользователя:', err);
       res.status(500).json({ error: err.message });
@@ -107,6 +141,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     
     console.log('✅ Пользователь обновлен:', id);
     res.json({ success: true, message: 'User updated successfully' });
+    });
   });
 });
 

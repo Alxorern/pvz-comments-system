@@ -88,8 +88,7 @@ class PvzModule {
       // Обновляем индикаторы сортировки
       this.updateSortIndicators();
       
-      // Инициализируем информацию о пользователе
-      this.initUserInfo();
+      // Информация о пользователе теперь управляется через MenuManager
       
       // Настраиваем сортировку
       this.setupSorting();
@@ -148,18 +147,11 @@ class PvzModule {
 
   /**
    * Инициализация информации о пользователе
+   * УДАЛЕНО - теперь управляется через MenuManager
    */
   initUserInfo() {
-    const userInfo = document.getElementById('userInfo');
-    if (userInfo) {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (user.full_name) {
-        const userName = userInfo.querySelector('.user-name');
-        const userRole = userInfo.querySelector('.user-role');
-        if (userName) userName.textContent = user.full_name;
-        if (userRole) userRole.textContent = user.role || 'Пользователь';
-      }
-    }
+    // Информация о пользователе теперь управляется через MenuManager
+    // Этот метод оставлен для совместимости, но не выполняет никаких действий
   }
 
   /**

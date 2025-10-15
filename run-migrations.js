@@ -6,6 +6,7 @@ async function main() {
     try {
         console.log('🚀 Запуск миграций базы данных...');
         
+        // Выполняем только стандартные миграции схемы БД
         await migrationManager.init();
         await migrationManager.runMigrations();
         

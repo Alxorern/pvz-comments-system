@@ -15,23 +15,43 @@ class MenuManager {
         try {
             console.log('🔧 Инициализация меню...');
             
+            // Сначала обновляем информацию о пользователе из localStorage
+            this.updateUserInfoFromStorage();
+            
             // Получаем информацию о пользователе с доступными пунктами меню
             const response = await this.api.get('/api/auth/user-info');
             
-            if (response.success && response.user) {
-                const user = response.user;
-                console.log('👤 Пользователь:', user.login, 'Роль:', user.roleName);
-                console.log('📋 Доступные пункты меню:', user.menuItems);
+            if (response && response.login) {
+                // API возвращает данные напрямую
+                const user = response;
+                console.log('👤 Пользователь:', user.login, 'Роль:', user.role);
                 
-                this.updateMenu(user.menuItems);
+                // Обновляем информацию о пользователе
                 this.updateUserInfo(user);
+                
+                // Показываем все пункты меню (пока нет системы ролей)
+                this.showAllMenuItems();
             } else {
-                console.warn('⚠️ Не удалось получить информацию о пользователе');
+                console.warn('⚠️ Не удалось получить информацию о пользователе через API, используем localStorage');
+                // Fallback - получаем данные из localStorage
+                const userData = localStorage.getItem('user');
+                if (userData) {
+                    const user = JSON.parse(userData);
+                    console.log('👤 Пользователь из localStorage:', user.login);
+                    this.updateUserInfo(user);
+                }
                 this.showAllMenuItems(); // Fallback - показываем все пункты
             }
             
         } catch (error) {
             console.error('❌ Ошибка инициализации меню:', error);
+            // Fallback - получаем данные из localStorage
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                console.log('👤 Пользователь из localStorage (fallback):', user.login);
+                this.updateUserInfo(user);
+            }
             this.showAllMenuItems(); // Fallback - показываем все пункты
         }
     }
@@ -41,37 +61,21 @@ class MenuManager {
         const navContainers = document.querySelectorAll('.sidebar-nav, .nav');
         
         navContainers.forEach(container => {
-            // Сохраняем кнопку выхода, если она есть
-            const logoutButton = container.querySelector('#btnLogout');
+            // Получаем все пункты меню (кнопка выхода теперь в sidebar-bottom)
+            const allMenuItems = container.querySelectorAll('.nav-item');
             
-            // Очищаем только пункты меню, но не кнопку выхода
-            const menuItems = container.querySelectorAll('.nav-item:not(#btnLogout)');
-            menuItems.forEach(item => item.remove());
-            
-            // Добавляем доступные пункты меню
-            availableItems.forEach(itemKey => {
-                const item = this.menuItems[itemKey];
-                if (item) {
-                    const navItem = document.createElement('a');
-                    navItem.href = item.url;
-                    navItem.className = 'nav-item';
-                    
-                    // Проверяем, является ли текущая страница активной
-                    if (window.location.pathname === item.url) {
-                        navItem.classList.add('active');
-                    }
-                    
-                    navItem.innerHTML = `
-                        <span class="nav-icon">${item.icon}</span>
-                        <span class="nav-text">${item.text}</span>
-                    `;
-                    
-                    // Вставляем перед кнопкой выхода, если она есть
-                    if (logoutButton) {
-                        container.insertBefore(navItem, logoutButton);
-                    } else {
-                        container.appendChild(navItem);
-                    }
+            // Скрываем/показываем пункты в зависимости от доступности
+            allMenuItems.forEach(menuItem => {
+                const href = menuItem.getAttribute('href');
+                const isAvailable = availableItems.some(itemKey => {
+                    const item = this.menuItems[itemKey];
+                    return item && item.url === href;
+                });
+                
+                if (isAvailable) {
+                    menuItem.style.display = '';
+                } else {
+                    menuItem.style.display = 'none';
                 }
             });
         });
@@ -81,17 +85,47 @@ class MenuManager {
         // Обновляем информацию о пользователе в интерфейсе
         const userInfoElements = document.querySelectorAll('#userInfo, .user-info');
         userInfoElements.forEach(element => {
-            element.textContent = `${user.full_name} (${user.roleName})`;
+            const userNameEl = element.querySelector('.user-name');
+            const userRoleEl = element.querySelector('.user-role');
+            
+            if (userNameEl) {
+                // Показываем login в первой строке
+                userNameEl.textContent = user.login || 'Неизвестный пользователь';
+            }
+            if (userRoleEl) {
+                // Показываем full_name во второй строке
+                userRoleEl.textContent = user.full_name || 'Имя не указано';
+            }
         });
         
         // НЕ сохраняем в localStorage - это делает auth.js
     }
 
+    /**
+     * Обновляет информацию о пользователе из localStorage
+     */
+    updateUserInfoFromStorage() {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+            const user = JSON.parse(userData);
+            console.log('👤 Обновляем информацию о пользователе из localStorage:', user.login);
+            this.updateUserInfo(user);
+        } else {
+            console.warn('⚠️ Данные пользователя не найдены в localStorage');
+        }
+    }
+
     showAllMenuItems() {
         // Fallback - показываем все пункты меню
         console.log('🔄 Показываем все пункты меню (fallback)');
-        const allItems = Object.keys(this.menuItems);
-        this.updateMenu(allItems);
+        const navContainers = document.querySelectorAll('.sidebar-nav, .nav');
+        
+        navContainers.forEach(container => {
+            const allMenuItems = container.querySelectorAll('.nav-item:not(#btnLogout)');
+            allMenuItems.forEach(menuItem => {
+                menuItem.style.display = '';
+            });
+        });
     }
 
     // Метод для обновления меню на конкретной странице

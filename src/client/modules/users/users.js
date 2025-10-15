@@ -19,6 +19,19 @@ class UsersModule {
     this.setupEventListeners();
     await this.loadData();
     this.renderUsers();
+    
+    // Убеждаемся, что модальные окна скрыты по умолчанию
+    this.hideAllModals();
+  }
+  
+  hideAllModals() {
+    const modals = ['overlayAddUser', 'overlayEditUser'];
+    modals.forEach(id => {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.remove('show');
+      }
+    });
   }
 
   /**
@@ -34,6 +47,11 @@ class UsersModule {
     const btnCancelAddUser = document.getElementById('btnCancelAddUser');
     if (btnCancelAddUser) {
       btnCancelAddUser.addEventListener('click', () => this.hideAddUserModal());
+    }
+
+    const closeAddUserModal = document.getElementById('closeAddUserModal');
+    if (closeAddUserModal) {
+      closeAddUserModal.addEventListener('click', () => this.hideAddUserModal());
     }
 
     const btnSubmitAddUser = document.getElementById('btnSubmitAddUser');
@@ -202,12 +220,12 @@ class UsersModule {
         <td>${user.created ? (window.utils ? window.utils.formatDate(user.created) : user.created) : ''}</td>
         <td>${user.addwho || ''}</td>
         <td>
-          <button class="btn small" onclick="usersModule.showEditUserModal(${user.id})" data-user-id="${user.id}">Редактировать</button>
+          <button class="btn small" onclick="usersModule.showEditUserModal(${user.user_id})" data-user-id="${user.user_id}">Редактировать</button>
         </td>
       `;
 
       // Подсветка новой записи
-      if (this.cache.lastCreatedUserId && user.id === this.cache.lastCreatedUserId) {
+      if (this.cache.lastCreatedUserId && user.user_id === this.cache.lastCreatedUserId) {
         row.classList.add('highlight');
       }
 
@@ -228,9 +246,9 @@ class UsersModule {
    * Показать модальное окно создания пользователя
    */
   showAddUserModal() {
-    const overlay = document.getElementById('overlayAddUser');
-    if (overlay) {
-      overlay.classList.add('show');
+    const modal = document.getElementById('overlayAddUser');
+    if (modal) {
+      modal.classList.add('show');
       this.clearAddUserForm();
     }
   }
@@ -239,9 +257,9 @@ class UsersModule {
    * Скрыть модальное окно создания пользователя
    */
   hideAddUserModal() {
-    const overlay = document.getElementById('overlayAddUser');
-    if (overlay) {
-      overlay.classList.remove('show');
+    const modal = document.getElementById('overlayAddUser');
+    if (modal) {
+      modal.classList.remove('show');
     }
   }
 
@@ -255,7 +273,7 @@ class UsersModule {
       
       console.log('🔍 Поиск пользователя для редактирования:', userId);
       
-      const user = this.cache.users.find(u => u.id == userId);
+      const user = this.cache.users.find(u => u.user_id == userId);
       if (user) {
         console.log('✅ Найден пользователь для редактирования:', user);
         document.getElementById('editUserFullName').value = user.full_name || '';
@@ -344,20 +362,10 @@ class UsersModule {
       const result = await window.apiClient.post('/api/users', userData);
       
       if (result && result.success) {
-        const newUser = {
-          id: result.id,
-          user_id: result.id,
-          ...userData,
-          created: new Date().toISOString(),
-          addwho: 'admin'
-        };
-        
-        // Добавляем в начало списка
-        this.cache.users.unshift(newUser);
-        this.cache.lastCreatedUserId = newUser.id;
-        
         this.hideAddUserModal();
-        this.renderUsers();
+        
+        // Обновляем данные с сервера
+        await this.refreshUsers();
         
         if (window.utils) {
           window.utils.showNotification('Пользователь создан успешно', 'success');
@@ -422,19 +430,10 @@ class UsersModule {
       const result = await window.apiClient.put(`/api/users/${this.editingUserId}`, userData);
       
       if (result && result.success) {
-        // Обновляем пользователя в кэше
-        const userIndex = this.cache.users.findIndex(u => u.id == this.editingUserId);
-        if (userIndex !== -1) {
-          this.cache.users[userIndex] = {
-            ...this.cache.users[userIndex],
-            full_name: userData.full_name,
-            login: userData.login,
-            role: userData.role
-          };
-        }
-        
         this.hideEditUserModal();
-        this.renderUsers();
+        
+        // Обновляем данные с сервера
+        await this.refreshUsers();
         
         if (window.utils) {
           window.utils.showNotification('Пользователь обновлен успешно', 'success');

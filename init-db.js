@@ -66,6 +66,7 @@ async function createTables(db) {
                 transaction_amount TEXT,
                 postal_code TEXT,
                 fitting_room TEXT,
+                phone TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (company_id) REFERENCES companies(company_id)
@@ -122,7 +123,8 @@ async function createTables(db) {
                 records_updated INTEGER DEFAULT 0,
                 records_skipped INTEGER DEFAULT 0,
                 execution_time_ms INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                sync_type TEXT DEFAULT 'pvz'
             );
         `;
         
