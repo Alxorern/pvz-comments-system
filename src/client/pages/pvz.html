@@ -90,6 +90,17 @@
                         <input type="text" id="companyFilter" placeholder="Поиск по компании...">
                     </div>
                     
+                    <div class="filter-group filter-problems">
+                        <label for="problemsFilter">Проблемы:</label>
+                        <select id="problemsFilter">
+                            <option value="">Все</option>
+                            <option value="Нет места">🚫 Нет места</option>
+                            <option value="Нет мебели">🪑 Нет мебели</option>
+                            <option value="Не дозвонились">📞 Не дозвонились</option>
+                            <option value="no-problems">✅ Нет проблем</option>
+                        </select>
+                    </div>
+                    
                     <div class="filter-actions">
                         <button class="btn btn-secondary" id="btnClearFilters">Сбросить фильтры</button>
                         <button class="btn btn-primary" id="btnExport">Экспорт</button>
@@ -188,6 +199,13 @@
                                     </span>
                                     <div class="resize-handle"></div>
                                 </th>
+                                <th data-column="problems" class="sortable" data-sort="none">
+                                    <span class="column-content">
+                                        <span class="column-title">Проблемы</span>
+                                        <span class="sort-indicator"></span>
+                                    </span>
+                                    <div class="resize-handle"></div>
+                                </th>
                                 <th data-column="last_comment" class="sortable" data-sort="none">
                                     <span class="column-content">
                                         <span class="column-title">Комментарий</span>
@@ -257,7 +275,7 @@
 
     <!-- Модальное окно настроек таблицы -->
     <div class="overlay" id="tableSettingsModal">
-        <div class="modal modal-lg">
+        <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h3 class="modal-title">Настройки таблицы</h3>
                 <button class="close" id="closeTableSettings">&times;</button>
@@ -273,6 +291,9 @@
                     <button class="btn btn-secondary" id="btnResetSettings">Вид по умолчанию</button>
                     <button class="btn btn-primary" id="btnSaveSettings">Сохранить</button>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCloseTableSettings">Закрыть</button>
             </div>
         </div>
     </div>
@@ -293,9 +314,31 @@
                 id="newComment" 
                 name="comment" 
                 placeholder="Введите ваш комментарий..."
-                required
               ></textarea>
             </div>
+            
+            <div class="comments-form-group">
+              <label class="comments-form-label">Проблема:</label>
+              <div class="problems-buttons">
+                <button type="button" class="btn btn-problem btn-problem-no-space" data-problem="Нет места">
+                  <span class="problem-icon">🚫</span>
+                  Нет места
+                </button>
+                <button type="button" class="btn btn-problem btn-problem-no-furniture" data-problem="Нет мебели">
+                  <span class="problem-icon">🪑</span>
+                  Нет мебели
+                </button>
+                <button type="button" class="btn btn-problem btn-problem-no-call" data-problem="Не дозвонились">
+                  <span class="problem-icon">📞</span>
+                  Не дозвонились
+                </button>
+                <button type="button" class="btn btn-problem btn-problem-clear" data-problem="">
+                  <span class="problem-icon">✅</span>
+                  Нет проблем
+                </button>
+              </div>
+            </div>
+            
             <div class="comments-form-actions">
               <button type="button" class="btn btn-secondary" id="cancelComment">Отмена</button>
               <button type="submit" class="btn btn-primary" id="saveComment">Сохранить</button>
@@ -313,7 +356,7 @@
     </div>
 
     <!-- Подключение модулей -->
-    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/secureApi.js"></script>
     <script src="/modules/shared/utils.js"></script>
     <script src="/modules/shared/theme.js"></script>
     <script src="/modules/shared/menu.js"></script>
@@ -327,7 +370,7 @@
             console.log('🚀 Страница ПВЗ загружена');
 
             // Проверяем аутентификацию
-            if (!apiClient.checkAuthAndRedirect()) {
+            if (!secureApiClient.checkAuthAndRedirect()) {
                 return;
             }
 

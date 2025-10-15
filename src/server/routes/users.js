@@ -4,6 +4,8 @@ const database = require('../database/db');
 const bcrypt = require('bcrypt');
 const { authenticateToken } = require('../middleware/auth');
 const { requireAdmin, addMenuPermissions } = require('../middleware/roles');
+const { validate, schemas } = require('../middleware/validation');
+const AuditService = require('../services/auditService');
 
 /**
  * GET /api/users - Получить всех пользователей
@@ -35,7 +37,8 @@ router.get('/', authenticateToken, requireAdmin, (req, res) => {
 /**
  * POST /api/users - Создать нового пользователя
  */
-router.post('/', authenticateToken, requireAdmin, (req, res) => {
+router.post('/', authenticateToken, requireAdmin, validate(schemas.user), async (req, res) => {
+  console.log('📥 Создание пользователя, полученные данные:', req.body);
   const { full_name, login, password, role, company_id } = req.body;
   const password_hash = bcrypt.hashSync(password, 10);
   
@@ -70,13 +73,17 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
       db.run(
         'INSERT INTO users (user_id, full_name, login, password_hash, role, role_id, addwho, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [next_user_id, full_name, login, password_hash, role, role_id, 'admin', company_id || null],
-      function(err) {
+      async function(err) {
         if (err) {
           console.error('❌ Ошибка создания пользователя:', err);
           res.status(500).json({ error: err.message });
           return;
         }
         console.log('✅ Пользователь создан с ID:', this.lastID);
+        
+        // Логируем создание пользователя
+        await AuditService.logAction(req, 'CREATE_USER', 'user', next_user_id);
+        
         res.json({ success: true, id: this.lastID, message: 'User created successfully' });
       }
     );
@@ -87,7 +94,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
 /**
  * PUT /api/users/:id - Обновить пользователя
  */
-router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, validate(schemas.userUpdate), async (req, res) => {
   const { id } = req.params;
   const { full_name, login, password, role, company_id } = req.body;
   
@@ -127,7 +134,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     console.log('🔍 Выполняем SQL запрос:', query);
     console.log('🔍 Параметры:', params);
     
-    db.run(query, params, function(err) {
+    db.run(query, params, async function(err) {
     if (err) {
       console.error('❌ Ошибка обновления пользователя:', err);
       res.status(500).json({ error: err.message });
@@ -140,6 +147,10 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
     }
     
     console.log('✅ Пользователь обновлен:', id);
+    
+    // Логируем обновление пользователя
+    await AuditService.logAction(req, 'UPDATE_USER', 'user', id);
+    
     res.json({ success: true, message: 'User updated successfully' });
     });
   });

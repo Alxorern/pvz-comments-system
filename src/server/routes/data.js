@@ -442,34 +442,77 @@ router.get('/comments', authenticateToken, requireAnyRole, async (req, res) => {
  */
 router.post('/comments', authenticateToken, requireAnyRole, async (req, res) => {
   try {
-    const { pvz_id, comment } = req.body;
+    const { pvz_id, comment, problems } = req.body;
     const created_by = req.user.login;
     
-    if (!pvz_id || !comment) {
+    console.log('💬 Сохранение комментария:', { pvz_id, comment, problems, created_by });
+    
+    if (!pvz_id) {
       return res.status(400).json({ 
-        error: 'Необходимо указать pvz_id и comment' 
+        error: 'PVZ ID обязателен',
+        details: 'Не указан ID ПВЗ для комментария' 
+      });
+    }
+    
+    // Проверяем, что есть либо комментарий, либо проблема (включая пустую строку для "Нет проблем")
+    if (!comment && problems === undefined) {
+      return res.status(400).json({ 
+        error: 'Необходимо указать комментарий или проблему' 
       });
     }
     
     const db = database.getDb();
     
-    db.run(`
-      INSERT INTO comments (pvz_id, comment, created_by) 
-      VALUES (?, ?, ?)
-    `, [pvz_id, comment, created_by], function(err) {
-      if (err) {
-        console.error('❌ Ошибка добавления комментария:', err);
-        return res.status(500).json({ 
-          error: 'Ошибка добавления комментария',
-          details: err.message 
+    // Начинаем транзакцию
+    db.serialize(() => {
+      // Добавляем комментарий, если он есть
+      if (comment && comment.trim()) {
+        db.run(`
+          INSERT INTO comments (pvz_id, comment, created_by) 
+          VALUES (?, ?, ?)
+        `, [pvz_id, comment.trim(), created_by], function(err) {
+          if (err) {
+            console.error('❌ Ошибка добавления комментария:', err);
+            return res.status(500).json({ 
+              error: 'Ошибка добавления комментария',
+              details: err.message 
+            });
+          }
+          
+          console.log('✅ Комментарий добавлен, ID:', this.lastID);
         });
       }
       
-      res.json({
-        success: true,
-        message: 'Комментарий добавлен',
-        id: this.lastID
-      });
+      // Обновляем поле problems в таблице pvz (включая пустую строку для "Нет проблем")
+      if (problems !== undefined) {
+        db.run(`
+          UPDATE pvz 
+          SET problems = ?, updated_at = CURRENT_TIMESTAMP 
+          WHERE pvz_id = ?
+        `, [problems, pvz_id], function(err) {
+          if (err) {
+            console.error('❌ Ошибка обновления problems:', err);
+            // Не прерываем выполнение, так как комментарий мог быть сохранен
+          } else {
+            console.log('✅ Поле problems обновлено для PVZ:', pvz_id, 'значение:', problems || '(пустое)');
+          }
+          
+          res.json({
+            success: true,
+            message: 'Данные сохранены',
+            commentId: comment && comment.trim() ? 'saved' : null,
+            problemsUpdated: true
+          });
+        });
+      } else {
+        // Если problems не указано, просто возвращаем успех
+        res.json({
+          success: true,
+          message: 'Комментарий добавлен',
+          commentId: comment && comment.trim() ? 'saved' : null,
+          problemsUpdated: false
+        });
+      }
     });
     
   } catch (error) {
@@ -616,60 +659,36 @@ router.post('/table-settings/:tableName', authenticateToken, async (req, res) =>
     const userId = req.user.id;
     const { columnVisibility, columnWidths, columnOrder } = req.body;
     
+    console.log('💾 Сохранение настроек таблицы:', { userId, tableName, columnVisibility, columnWidths, columnOrder });
+    console.log('👤 Информация о пользователе:', { id: req.user.id, login: req.user.login, role: req.user.role });
+    
     const db = database.getDb();
     
-    // Проверяем, есть ли уже настройки для этого пользователя и таблицы
-    const existing = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT id FROM user_table_settings WHERE user_id = ? AND table_name = ?',
-        [userId, tableName],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
+    // Используем INSERT OR REPLACE для избежания race conditions
+    console.log('💾 Сохраняем настройки с помощью INSERT OR REPLACE...');
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT OR REPLACE INTO user_table_settings 
+         (user_id, table_name, column_visibility, column_widths, column_order, updated_at)
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [
+          userId,
+          tableName,
+          JSON.stringify(columnVisibility),
+          JSON.stringify(columnWidths),
+          JSON.stringify(columnOrder)
+        ],
+        function(err) {
+          if (err) {
+            console.error('❌ Ошибка сохранения настроек:', err);
+            reject(err);
+          } else {
+            console.log(`✅ Настройки сохранены, затронуто строк: ${this.changes}, lastID: ${this.lastID}`);
+            resolve(this);
+          }
         }
       );
     });
-    
-    if (existing) {
-      // Обновляем существующие настройки
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE user_table_settings 
-           SET column_visibility = ?, column_widths = ?, column_order = ?, updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = ? AND table_name = ?`,
-          [
-            JSON.stringify(columnVisibility),
-            JSON.stringify(columnWidths),
-            JSON.stringify(columnOrder),
-            userId,
-            tableName
-          ],
-          function(err) {
-            if (err) reject(err);
-            else resolve(this);
-          }
-        );
-      });
-    } else {
-      // Создаем новые настройки
-      await new Promise((resolve, reject) => {
-        db.run(
-          `INSERT INTO user_table_settings (user_id, table_name, column_visibility, column_widths, column_order)
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            userId,
-            tableName,
-            JSON.stringify(columnVisibility),
-            JSON.stringify(columnWidths),
-            JSON.stringify(columnOrder)
-          ],
-          function(err) {
-            if (err) reject(err);
-            else resolve(this);
-          }
-        );
-      });
-    }
     
     res.json({
       success: true,
@@ -680,6 +699,49 @@ router.post('/table-settings/:tableName', authenticateToken, async (req, res) =>
     console.error('❌ Ошибка сохранения настроек таблицы:', error);
     res.status(500).json({ 
       error: 'Ошибка сохранения настроек таблицы',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * DELETE /api/data/table-settings/:tableName - Удалить настройки таблицы для пользователя
+ */
+router.delete('/table-settings/:tableName', authenticateToken, async (req, res) => {
+  try {
+    const { tableName } = req.params;
+    const userId = req.user.id;
+    
+    console.log('🗑️ Удаление настроек таблицы:', { userId, tableName });
+    
+    const db = database.getDb();
+    
+    // Удаляем настройки для данного пользователя и таблицы
+    const result = await new Promise((resolve, reject) => {
+      db.run(
+        'DELETE FROM user_table_settings WHERE user_id = ? AND table_name = ?',
+        [userId, tableName],
+        function(err) {
+          if (err) {
+            console.error('❌ Ошибка удаления настроек:', err);
+            reject(err);
+          } else {
+            console.log(`✅ Настройки удалены, затронуто строк: ${this.changes}`);
+            resolve(this);
+          }
+        }
+      );
+    });
+    
+    res.json({
+      success: true,
+      message: 'Настройки таблицы удалены'
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка удаления настроек таблицы:', error);
+    res.status(500).json({ 
+      error: 'Ошибка удаления настроек таблицы',
       details: error.message 
     });
   }
@@ -704,6 +766,15 @@ router.get('/regions', authenticateToken, requireAnyRole, addUserRegions, async 
         });
       });
       console.log(`🔍 Admin получил ${regions.length} регионов:`, regions.slice(0, 5));
+    } else if (req.userRole === 'superuser') {
+      // Superuser видит все регионы (может фильтровать по любому региону)
+      regions = await new Promise((resolve, reject) => {
+        db.all('SELECT DISTINCT region FROM pvz WHERE region IS NOT NULL AND region != "" ORDER BY region', [], (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows.map(row => row.region));
+        });
+      });
+      console.log(`🔍 Superuser получил ${regions.length} регионов:`, regions.slice(0, 5));
     } else {
       // Обычные пользователи видят только свои регионы
       regions = req.userRegions || [];

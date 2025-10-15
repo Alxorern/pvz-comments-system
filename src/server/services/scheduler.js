@@ -80,7 +80,7 @@ async function startScheduler() {
   task = cron.schedule(cronExpression, async () => {
     console.log(`⏰ Автосинхронизация (${currentFrequency} мин)...`);
     try {
-      await googleSheetsService.syncPvzData();
+      await googleSheetsService.syncPvzData(false, true); // isScheduled = true
       console.log('✅ Автосинхронизация завершена');
     } catch (error) {
       console.error('❌ Ошибка автосинхронизации:', error.message);

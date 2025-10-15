@@ -87,6 +87,19 @@ class UsersModule {
         }
       });
     }
+
+    // Обработчик для кнопок редактирования пользователей (делегирование событий)
+    const usersTableBody = document.getElementById('usersTableBody');
+    if (usersTableBody) {
+      usersTableBody.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-user-btn')) {
+          const userId = e.target.getAttribute('data-user-id');
+          if (userId) {
+            this.showEditUserModal(userId);
+          }
+        }
+      });
+    }
   }
 
   /**
@@ -95,29 +108,29 @@ class UsersModule {
   async loadData() {
     try {
       console.log('🔄 Начинаем загрузку данных пользователей...');
-      console.log('🔍 apiClient доступен:', !!window.apiClient);
+      console.log('🔍 secureApiClient доступен:', !!window.secureApiClient);
       console.log('🔍 utils доступен:', !!window.utils);
       
       // Загружаем пользователей
       console.log('📥 Загружаем пользователей...');
-      const usersResponse = await window.apiClient.get('/api/users');
+      const usersResponse = await window.secureApiClient.get('/api/users');
       console.log('📥 Ответ API пользователей:', usersResponse);
       
       if (usersResponse && usersResponse.success) {
-        this.cache.users = usersResponse.data;
-        console.log('✅ Загружено пользователей:', usersResponse.data.length);
+        this.cache.users = usersResponse.data || [];
+        console.log('✅ Загружено пользователей:', usersResponse.data ? usersResponse.data.length : 0);
       } else {
         console.error('❌ Ошибка загрузки пользователей:', usersResponse);
       }
 
       // Загружаем роли
       console.log('📥 Загружаем роли...');
-      const rolesResponse = await window.apiClient.get('/api/roles');
+      const rolesResponse = await window.secureApiClient.get('/api/roles');
       console.log('📥 Ответ API ролей:', rolesResponse);
       
       if (rolesResponse && rolesResponse.success) {
-        this.cache.roles = rolesResponse.data;
-        console.log('✅ Загружено ролей:', rolesResponse.data.length);
+        this.cache.roles = rolesResponse.data || [];
+        console.log('✅ Загружено ролей:', rolesResponse.data ? rolesResponse.data.length : 0);
         this.populateRoles();
       } else {
         console.error('❌ Ошибка загрузки ролей:', rolesResponse);
@@ -125,12 +138,12 @@ class UsersModule {
 
       // Загружаем компании
       console.log('📥 Загружаем компании...');
-      const companiesResponse = await window.apiClient.get('/api/companies/all');
+      const companiesResponse = await window.secureApiClient.get('/api/companies/all');
       console.log('📥 Ответ API компаний:', companiesResponse);
       
       if (companiesResponse && companiesResponse.success) {
-        this.cache.companies = companiesResponse.data;
-        console.log('✅ Загружено компаний:', companiesResponse.data.length);
+        this.cache.companies = companiesResponse.data || [];
+        console.log('✅ Загружено компаний:', companiesResponse.data ? companiesResponse.data.length : 0);
         this.populateCompanies();
       } else {
         console.error('❌ Ошибка загрузки компаний:', companiesResponse);
@@ -178,6 +191,7 @@ class UsersModule {
     if (addSelect) {
       addSelect.innerHTML = '<option value="">Выберите компанию</option>';
       this.cache.companies.forEach(company => {
+        console.log('🏢 Компания:', company); // Логируем структуру данных
         const option = document.createElement('option');
         option.value = company.company_id;
         option.textContent = company.company_name;
@@ -220,7 +234,7 @@ class UsersModule {
         <td>${user.created ? (window.utils ? window.utils.formatDate(user.created) : user.created) : ''}</td>
         <td>${user.addwho || ''}</td>
         <td>
-          <button class="btn small" onclick="usersModule.showEditUserModal(${user.user_id})" data-user-id="${user.user_id}">Редактировать</button>
+          <button class="btn small edit-user-btn" data-user-id="${user.user_id}">Редактировать</button>
         </td>
       `;
 
@@ -346,20 +360,29 @@ class UsersModule {
       return;
     }
 
+    // Валидация пароля
+    if (password.length < 6) {
+      if (window.utils) {
+        window.utils.showNotification('Пароль должен содержать минимум 6 символов', 'error');
+      }
+      return;
+    }
+
     const userData = {
       full_name: fullName,
       login: login,
       password: password,
       role: role,
-      company_id: company_id || null
+      company_id: company_id && company_id.trim() !== '' ? company_id : null
     };
 
     try {
       console.log('🔄 Создание нового пользователя:', { 
         userData: { ...userData, password: '[HIDDEN]' } 
       });
+      console.log('📤 Отправляемые данные:', userData);
       
-      const result = await window.apiClient.post('/api/users', userData);
+      const result = await window.secureApiClient.post('/api/users', userData);
       
       if (result && result.success) {
         this.hideAddUserModal();
@@ -371,14 +394,31 @@ class UsersModule {
           window.utils.showNotification('Пользователь создан успешно', 'success');
         }
       } else {
+        // Показываем детали ошибки валидации
+        let errorMessage = 'Ошибка создания пользователя';
+        if (result && result.details && Array.isArray(result.details)) {
+          errorMessage = result.details.join(', ');
+        } else if (result && result.error) {
+          errorMessage = result.error;
+        }
+        
         if (window.utils) {
-          window.utils.showNotification('Ошибка создания пользователя', 'error');
+          window.utils.showNotification(errorMessage, 'error');
         }
       }
     } catch (error) {
       console.error('❌ Ошибка создания пользователя:', error);
+      
+      // Показываем более понятную ошибку
+      let errorMessage = 'Ошибка создания пользователя';
+      if (error.message && error.message.includes('HTTP error! status: 400')) {
+        errorMessage = 'Проверьте правильность заполнения полей';
+      } else {
+        errorMessage = 'Ошибка соединения: ' + error.message;
+      }
+      
       if (window.utils) {
-        window.utils.showNotification('Ошибка соединения: ' + error.message, 'error');
+        window.utils.showNotification(errorMessage, 'error');
       }
     }
   }
@@ -413,13 +453,25 @@ class UsersModule {
       return;
     }
 
+    // Валидация пароля (только если он не пустой)
+    if (password && password.length < 6) {
+      if (window.utils) {
+        window.utils.showNotification('Пароль должен содержать минимум 6 символов', 'error');
+      }
+      return;
+    }
+
     const userData = {
       full_name: fullName,
       login: login,
-      password: password,
       role: role,
-      company_id: company_id || null
+      company_id: company_id && company_id.trim() !== '' ? company_id : null
     };
+    
+    // Добавляем пароль только если он не пустой
+    if (password && password.trim() !== '') {
+      userData.password = password;
+    }
 
     try {
       console.log('🔄 Редактирование пользователя:', { 
@@ -427,7 +479,7 @@ class UsersModule {
         userData: { ...userData, password: userData.password ? '[HIDDEN]' : '[EMPTY]' } 
       });
       
-      const result = await window.apiClient.put(`/api/users/${this.editingUserId}`, userData);
+      const result = await window.secureApiClient.put(`/api/users/${this.editingUserId}`, userData);
       
       if (result && result.success) {
         this.hideEditUserModal();
@@ -439,14 +491,31 @@ class UsersModule {
           window.utils.showNotification('Пользователь обновлен успешно', 'success');
         }
       } else {
+        // Показываем детали ошибки валидации
+        let errorMessage = 'Ошибка обновления пользователя';
+        if (result && result.details && Array.isArray(result.details)) {
+          errorMessage = result.details.join(', ');
+        } else if (result && result.error) {
+          errorMessage = result.error;
+        }
+        
         if (window.utils) {
-          window.utils.showNotification('Ошибка обновления пользователя', 'error');
+          window.utils.showNotification(errorMessage, 'error');
         }
       }
     } catch (error) {
       console.error('❌ Ошибка редактирования пользователя:', error);
+      
+      // Показываем более понятную ошибку
+      let errorMessage = 'Ошибка обновления пользователя';
+      if (error.message && error.message.includes('HTTP error! status: 400')) {
+        errorMessage = 'Проверьте правильность заполнения полей';
+      } else {
+        errorMessage = 'Ошибка соединения: ' + error.message;
+      }
+      
       if (window.utils) {
-        window.utils.showNotification('Ошибка соединения: ' + error.message, 'error');
+        window.utils.showNotification(errorMessage, 'error');
       }
     }
   }

@@ -130,7 +130,7 @@
     </div>
 
     <!-- Подключение модулей -->
-    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/secureApi.js"></script>
     <script src="/modules/shared/utils.js"></script>
     <script src="/modules/shared/theme.js"></script>
     <script src="/modules/shared/menu.js"></script>
@@ -143,7 +143,7 @@
             console.log('🚀 Страница настроек загружена');
 
             // Проверяем аутентификацию
-            if (!apiClient.checkAuthAndRedirect()) {
+            if (!secureApiClient.checkAuthAndRedirect()) {
                 return;
             }
 
@@ -172,7 +172,7 @@
         async function loadSettings() {
             try {
                 const response = await fetch('/api/settings', {
-                    headers: apiClient.getAuthHeaders()
+                    credentials: 'include'
                 });
 
                 if (response.ok) {
@@ -200,7 +200,7 @@
         async function loadSyncStatus() {
             try {
                 const response = await fetch('/api/data/scheduler/status', {
-                    headers: apiClient.getAuthHeaders()
+                    credentials: 'include'
                 });
 
                 if (response.ok) {
@@ -251,7 +251,10 @@
 
                     const response = await fetch('/api/settings', {
                         method: 'POST',
-                        headers: apiClient.getAuthHeaders(),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
                         body: JSON.stringify(settings)
                     });
 
@@ -287,7 +290,10 @@
 
                     const response = await fetch('/api/settings/test-connection', {
                         method: 'POST',
-                        headers: apiClient.getAuthHeaders(),
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
                         body: JSON.stringify({
                             pvzTableId,
                             pvzSheetName
@@ -326,7 +332,7 @@
 
                         const response = await fetch('/api/data/scheduler/start', {
                             method: 'POST',
-                            headers: apiClient.getAuthHeaders()
+                            credentials: 'include'
                         });
 
                         if (response.ok) {
@@ -353,7 +359,7 @@
 
                         const response = await fetch('/api/data/scheduler/stop', {
                             method: 'POST',
-                            headers: apiClient.getAuthHeaders()
+                            credentials: 'include'
                         });
 
                         if (response.ok) {
@@ -380,7 +386,7 @@
 
                         const response = await fetch('/api/data/sync', {
                             method: 'POST',
-                            headers: apiClient.getAuthHeaders()
+                            credentials: 'include'
                         });
 
                         if (response.ok) {
@@ -506,6 +512,12 @@
             if (closeBtn) {
                 closeBtn.addEventListener('click', hideSyncLogsModal);
             }
+            
+            // Закрытие модального окна через кнопку в footer
+            const closeBtnFooter = document.getElementById('closeSyncLogsModalFooter');
+            if (closeBtnFooter) {
+                closeBtnFooter.addEventListener('click', hideSyncLogsModal);
+            }
 
             // Клик по overlay для закрытия
             const modal = document.getElementById('syncLogsModal');
@@ -584,7 +596,7 @@
                 }
 
                 const response = await fetch(`/api/settings/sync-logs?${params}`, {
-                    headers: apiClient.getAuthHeaders()
+                    credentials: 'include'
                 });
 
                 if (response.ok) {
@@ -658,7 +670,7 @@
 
     <!-- Модальное окно для логов синхронизации -->
     <div class="overlay" id="syncLogsModal">
-        <div class="modal modal-lg">
+        <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h3 class="modal-title">Лог синхронизации с Google Sheets</h3>
                 <button class="close" id="closeSyncLogsModal">&times;</button>
@@ -717,6 +729,9 @@
                     <span id="paginationInfo">Страница 1 из 1</span>
                     <button class="btn btn-sm" id="btnNextPage" disabled>Следующая →</button>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeSyncLogsModalFooter">Закрыть</button>
             </div>
         </div>
     </div>

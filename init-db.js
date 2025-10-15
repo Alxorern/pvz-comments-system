@@ -67,6 +67,7 @@ async function createTables(db) {
                 postal_code TEXT,
                 fitting_room TEXT,
                 phone TEXT,
+                problems TEXT DEFAULT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (company_id) REFERENCES companies(company_id)
@@ -118,6 +119,7 @@ async function createTables(db) {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 status TEXT NOT NULL,
                 message TEXT,
+                details TEXT,
                 records_processed INTEGER DEFAULT 0,
                 records_created INTEGER DEFAULT 0,
                 records_updated INTEGER DEFAULT 0,
@@ -125,6 +127,18 @@ async function createTables(db) {
                 execution_time_ms INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 sync_type TEXT DEFAULT 'pvz'
+            );
+            
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                resource_type TEXT,
+                resource_id TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
         `;
         

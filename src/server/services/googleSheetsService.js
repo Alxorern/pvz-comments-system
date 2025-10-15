@@ -9,6 +9,8 @@ class GoogleSheetsService {
     this.settingsCacheTime = 0;
     this.settingsCacheTimeout = 5 * 60 * 1000; // 5 минут
     this.companyNameToId = new Map(); // Кэш для соответствия названий компаний и их ID
+    this.lastSyncTime = null; // Время последней синхронизации
+    this.syncCacheTimeout = 30 * 60 * 1000; // 30 минут кэш синхронизации
   }
 
   /**
@@ -98,23 +100,35 @@ class GoogleSheetsService {
       
       console.log(`📊 Размер листа "${sheetName}": ${rowCount} строк`);
       
-      // Читаем данные
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId: spreadsheetId,
-        range: `${sheetName}!A:Z`,
-        valueRenderOption: 'UNFORMATTED_VALUE', // Получаем неформатированные значения
-        dateTimeRenderOption: 'FORMATTED_STRING' // Даты как строки
-      });
+      // Читаем все данные одним запросом для минимизации API вызовов
+      console.log('📖 Начинаем чтение данных из Google Sheets одним запросом...');
       
-      const rows = response.data.values;
-      if (!rows || rows.length === 0) {
+      let allRows;
+      try {
+        const response = await this.sheets.spreadsheets.values.get({
+          spreadsheetId: spreadsheetId,
+          range: `${sheetName}!A:Z`,
+          valueRenderOption: 'UNFORMATTED_VALUE',
+          dateTimeRenderOption: 'FORMATTED_STRING'
+        }, {
+          timeout: 60000 // 60 секунд таймаут для больших таблиц
+        });
+        
+        console.log('✅ Данные получены из Google Sheets одним запросом');
+        allRows = response.data.values;
+      } catch (error) {
+        console.error('❌ Ошибка чтения данных из Google Sheets:', error.message);
+        throw new Error(`Не удалось прочитать данные из Google Sheets: ${error.message}`);
+      }
+      
+      if (!allRows || allRows.length === 0) {
         console.log('⚠️ Данные не найдены в листе');
         return [];
       }
       
       // Первая строка - заголовки
-      const headers = rows[0];
-      const data = rows.slice(1);
+      const headers = allRows[0];
+      const data = allRows.slice(1);
       
       console.log(`✅ Прочитано ${data.length} записей из листа "${sheetName}"`);
       
@@ -192,8 +206,27 @@ class GoogleSheetsService {
   /**
    * Синхронизация данных ПВЗ с локальной базой данных
    */
-  async syncPvzData() {
+  async syncPvzData(forceSync = false, isScheduled = false) {
     console.log('🔄 Начинаем синхронизацию данных ПВЗ...');
+    
+    // Проверяем кэш синхронизации только для ручных синхронизаций
+    // Шедулер всегда выполняет синхронизацию по расписанию
+    const now = Date.now();
+    if (!isScheduled && !forceSync && this.lastSyncTime && (now - this.lastSyncTime) < this.syncCacheTimeout) {
+      const remainingTime = Math.ceil((this.syncCacheTimeout - (now - this.lastSyncTime)) / 1000 / 60);
+      console.log(`⏰ Ручная синхронизация уже выполнялась недавно. Следующая синхронизация через ${remainingTime} минут`);
+      return {
+        synced: 0,
+        updated: 0,
+        skipped: 0,
+        total: 0,
+        message: `Синхронизация пропущена (кэш активен еще ${remainingTime} мин)`
+      };
+    }
+    
+    if (isScheduled) {
+      console.log('⏰ Выполняется автоматическая синхронизация по расписанию');
+    }
     
     // Проверяем инициализацию
     if (!this.initialized) {
@@ -226,10 +259,13 @@ class GoogleSheetsService {
       }
 
       // Читаем данные из Google Sheets
+      console.log('📖 Начинаем чтение данных из Google Sheets...');
       const googleData = await this.readPvzData(settings.pvzTableId, settings.pvzSheetName);
+      console.log(`✅ Прочитано ${googleData.length} записей из Google Sheets`);
       logData.recordsProcessed = googleData.length;
       
       // Сохраняем в локальную базу данных
+      console.log('💾 Начинаем обработку данных для сохранения в базу...');
       const database = require('../database/db');
       const db = database.getDb();
       
@@ -242,7 +278,15 @@ class GoogleSheetsService {
       const skippedRecords = [];
       const seenPvzIds = new Set();
       
-      for (const row of googleData) {
+      console.log(`🔄 Обрабатываем ${googleData.length} записей...`);
+      for (let i = 0; i < googleData.length; i++) {
+        const row = googleData[i];
+        
+        // Показываем прогресс каждые 1000 записей
+        if (i % 1000 === 0) {
+          console.log(`📊 Обработано ${i} из ${googleData.length} записей...`);
+        }
+        
         // Пропускаем записи без ID ПВЗ - проверяем более строго
         const pvzId = row['Внешний ID ПВЗ'] || row['PVZID'] || '';
         if (!pvzId || pvzId.toString().trim() === '') {
@@ -284,6 +328,8 @@ class GoogleSheetsService {
           phone: companyPhone // Телефон из Google Sheets идет в таблицу pvz
         });
       }
+
+      console.log(`✅ Обработка завершена: ${validPvzData.length} валидных записей, ${skippedCount} пропущено`);
 
       if (validPvzData.length === 0) {
         console.log('⚠️ Нет валидных данных для синхронизации');
@@ -353,6 +399,9 @@ class GoogleSheetsService {
 
       console.log(`✅ Синхронизация завершена: ${syncedCount} новых, ${updatedCount} обновленных, ${skippedCount} пропущенных записей`);
       
+      // Обновляем время последней синхронизации
+      this.lastSyncTime = Date.now();
+      
       // Краткое логирование только при проблемах
       if (skippedCount > 0) {
         console.log(`⚠️ Пропущено ${skippedCount} записей из ${googleData.length} прочитанных`);
@@ -393,42 +442,32 @@ class GoogleSheetsService {
   }
 
   /**
-   * Batch INSERT для новых записей ПВЗ (оптимизированная версия)
+   * Batch UPSERT для записей ПВЗ (оптимизированная версия)
    */
   async batchUpsertPvz(db, records) {
     if (records.length === 0) return { inserted: 0, updated: 0 };
 
-    const insertSQL = `
-      INSERT OR IGNORE INTO pvz (
+    // Оптимизированный UPSERT с использованием INSERT OR REPLACE
+    const upsertSQL = `
+      INSERT OR REPLACE INTO pvz (
         pvz_id, region, address, service_name, status_date,
         status_name, company_id, transaction_date, transaction_amount,
         postal_code, fitting_room, phone, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
-    const updateSQL = `
-      UPDATE pvz SET 
-        region = ?, address = ?, service_name = ?, status_date = ?,
-        status_name = ?, company_id = ?, transaction_date = ?,
-        transaction_amount = ?, postal_code = ?, fitting_room = ?, phone = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE pvz_id = ?
-    `;
-
     return new Promise((resolve, reject) => {
+      // Используем db.serialize() для последовательного выполнения, но без вложенных транзакций
       db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
-        
-        const insertStmt = db.prepare(insertSQL);
-        const updateStmt = db.prepare(updateSQL);
+        const upsertStmt = db.prepare(upsertSQL);
         let completed = 0;
-        let inserted = 0;
-        let updated = 0;
+        let totalChanges = 0;
         let hasError = false;
         
+        console.log(`🔄 Начинаем batch UPSERT для ${records.length} записей...`);
+        
         for (const record of records) {
-          // Сначала пытаемся вставить (если записи нет, она будет вставлена)
-          insertStmt.run([
+          upsertStmt.run([
             record.pvz_id, record.region, record.address, record.service_name,
             record.status_date, record.status_name, record.company_id,
             record.transaction_date, record.transaction_amount,
@@ -436,68 +475,25 @@ class GoogleSheetsService {
           ], function(err) {
             if (err && !hasError) {
               hasError = true;
-              console.error('❌ Ошибка batch INSERT:', err);
-              insertStmt.finalize();
-              updateStmt.finalize();
-              db.run('ROLLBACK', () => {
-                reject(err);
-              });
+              console.error('❌ Ошибка batch UPSERT:', err);
+              upsertStmt.finalize();
+              reject(err);
               return;
             }
             
-            // Если вставка прошла успешно (changes > 0), значит это новая запись
-            if (this.changes > 0) {
-              inserted++;
-              completed++;
-              if (completed === records.length && !hasError) {
-                insertStmt.finalize();
-                updateStmt.finalize();
-                db.run('COMMIT', (err) => {
-                  if (err) {
-                    reject(err);
-                  } else {
-                    console.log(`📊 Batch UPSERT завершен: ${inserted} новых, ${updated} обновленных записей`);
-                    resolve({ inserted, updated });
-                  }
-                });
-              }
-            } else {
-              // Если вставка не произошла (запись уже существует), обновляем
-              updateStmt.run([
-                record.region, record.address, record.service_name, record.status_date,
-                record.status_name, record.company_id, record.transaction_date,
-                record.transaction_amount, record.postal_code, record.fitting_room,
-                record.phone, record.pvz_id
-              ], function(updateErr) {
-                if (updateErr && !hasError) {
-                  hasError = true;
-                  console.error('❌ Ошибка batch UPDATE:', updateErr);
-                  insertStmt.finalize();
-                  updateStmt.finalize();
-                  db.run('ROLLBACK', () => {
-                    reject(updateErr);
-                  });
-                  return;
-                }
-                
-                if (this.changes > 0) {
-                  updated++;
-                }
-                
-                completed++;
-                if (completed === records.length && !hasError) {
-                  insertStmt.finalize();
-                  updateStmt.finalize();
-                  db.run('COMMIT', (err) => {
-                    if (err) {
-                      reject(err);
-                    } else {
-                      console.log(`📊 Batch UPSERT завершен: ${inserted} новых, ${updated} обновленных записей`);
-                      resolve({ inserted, updated });
-                    }
-                  });
-                }
-              });
+            totalChanges += this.changes;
+            completed++;
+            
+            // Показываем прогресс каждые 1000 записей
+            if (completed % 1000 === 0) {
+              console.log(`📊 Обработано ${completed} из ${records.length} записей...`);
+            }
+            
+            if (completed === records.length && !hasError) {
+              upsertStmt.finalize();
+              console.log(`📊 Batch UPSERT завершен: ${totalChanges} изменений из ${records.length} записей`);
+              // Приблизительно считаем: если changes > 0, то это новая запись, иначе обновление
+              resolve({ inserted: totalChanges, updated: records.length - totalChanges });
             }
           });
         }
@@ -616,14 +612,12 @@ class GoogleSheetsService {
 
           // Компания не найдена — пытаемся вставить с уникальным ограничением
           db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
 
             db.get(
               'SELECT MAX(CAST(company_id AS INTEGER)) as max_id FROM companies WHERE company_id GLOB "[0-9]*"',
               [],
               (err, maxRow) => {
                 if (err) {
-                  db.run('ROLLBACK');
                   reject(err);
                   return;
                 }
@@ -637,7 +631,6 @@ class GoogleSheetsService {
                   [companyId, normalizedName, null],
                   function(err) {
                     if (err) {
-                      db.run('ROLLBACK');
                       reject(err);
                       return;
                     }
@@ -647,12 +640,9 @@ class GoogleSheetsService {
                     const fetchSql = 'SELECT company_id FROM companies WHERE company_name = ?';
                     db.get(fetchSql, [normalizedName], (err, fetched) => {
                       if (err) {
-                        db.run('ROLLBACK');
                         reject(err);
                         return;
                       }
-
-                      db.run('COMMIT');
                       const finalId = fetched?.company_id || companyId;
                       self.companyNameToId.set(normalizedName, finalId);
                       if (fetched) {

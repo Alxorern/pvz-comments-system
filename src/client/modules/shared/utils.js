@@ -124,14 +124,8 @@ function initializeLogoutButton() {
  * Проверяет аутентификацию и перенаправляет на логин при необходимости
  */
 function checkAuthentication() {
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    // Сохраняем текущую страницу для возврата после логина
-    const currentPath = window.location.pathname;
-    const returnUrl = encodeURIComponent(currentPath);
-    window.location.href = `/login?return=${returnUrl}`;
-    return false;
-  }
+  // Проверяем аутентификацию через httpOnly cookies
+  // Если пользователь не аутентифицирован, сервер сам перенаправит на логин
   return true;
 }
 

@@ -11,19 +11,27 @@ class NavigationModule {
    */
   async init() {
     try {
-      // Получаем информацию о пользователе
-      if (window.authModule && window.authModule.getUserInfo) {
-        const userInfo = await window.authModule.getUserInfo();
-        if (userInfo) {
-          this.userRole = userInfo.role;
+      // Получаем информацию о пользователе через secureApiClient
+      if (window.secureApiClient) {
+        const response = await window.secureApiClient.get('/api/auth/user-info');
+        if (response && response.success && response.user) {
+          this.userRole = response.user.role;
           this.updateNavigation();
         }
       } else {
-        console.log('⚠️ authModule не найден, пропускаем инициализацию навигации');
+        console.log('⚠️ secureApiClient не найден, пропускаем инициализацию навигации');
       }
     } catch (error) {
       console.error('❌ Ошибка инициализации навигации:', error);
     }
+  }
+
+  /**
+   * Обновляет роль пользователя и перерисовывает навигацию
+   */
+  updateUserRole(role) {
+    this.userRole = role;
+    this.updateNavigation();
   }
 
   /**

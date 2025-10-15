@@ -124,7 +124,7 @@
     </div>
 
     <!-- Подключение модулей -->
-    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/secureApi.js"></script>
     <script src="/modules/shared/utils.js"></script>
     <script src="/modules/shared/theme.js"></script>
     <script src="/modules/shared/menu.js"></script>
@@ -134,10 +134,10 @@
     <script>
         // Проверка авторизации при загрузке страницы
         document.addEventListener('DOMContentLoaded', async function() {
-            const apiClient = new ApiClient();
+            // secureApiClient уже доступен глобально
             
             // Проверяем аутентификацию
-            if (!apiClient.checkAuthAndRedirect()) {
+            if (!secureApiClient.checkAuthAndRedirect()) {
                 console.log('❌ Пользователь не аутентифицирован, перенаправляем на логин');
                 return;
             }

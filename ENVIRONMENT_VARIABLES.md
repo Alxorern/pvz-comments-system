@@ -8,6 +8,12 @@
 ### База данных
 - База данных автоматически создается в `/app/data/billing.db` (volume монтирование)
 
+### Безопасность
+- `ALLOWED_ORIGINS` - разрешенные домены для CORS (через запятую)
+- `RATE_LIMIT_WINDOW_MS` - окно для rate limiting в миллисекундах (по умолчанию: 900000)
+- `RATE_LIMIT_MAX_REQUESTS` - максимальное количество запросов (по умолчанию: 100)
+- `AUTH_RATE_LIMIT_MAX_REQUESTS` - максимальное количество попыток входа (по умолчанию: 5)
+
 ### JWT
 - `JWT_SECRET` - секретный ключ для JWT токенов (по умолчанию: `billing-system-secret-key-2025`)
 
@@ -33,6 +39,10 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=your-secure-admin-password
 SUPERUSER_USERNAME=superuser
 SUPERUSER_PASSWORD=your-secure-superuser-password
+ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+AUTH_RATE_LIMIT_MAX_REQUESTS=5
 ```
 
 **Важно:** Убедитесь, что в Railway настроен volume монтирование в `/app/data/`

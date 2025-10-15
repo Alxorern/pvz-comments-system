@@ -1,9 +1,13 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const database = require('./database/db');
 const { authenticatePage } = require('./middleware/auth');
 const { addMenuPermissions } = require('./middleware/roles');
+const { sanitizeInput } = require('./middleware/validation');
 
 // Импортируем маршруты
 const authRoutes = require('./routes/auth');
@@ -12,20 +16,89 @@ const rolesRoutes = require('./routes/roles');
 const settingsRoutes = require('./routes/settings');
 const dataRoutes = require('./routes/data');
 const companiesRoutes = require('./routes/companies');
+const auditRoutes = require('./routes/audit');
 
 const app = express();
 
-// Middleware для CORS (поддержка внешнего доступа)
-app.use(cors({
-  origin: function (origin, callback) {
-    // Разрешаем все origin для туннелей
-    callback(null, true);
+// Trust proxy for Railway
+app.set('trust proxy', 1);
+
+// Security Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
   },
-  credentials: true
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  xssFilter: true,
+  noSniff: true,
+  frameguard: { action: 'deny' }
 }));
 
-// Middleware для обработки JSON и статических файлов
-app.use(express.json());
+// Rate Limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 100000, // максимум 100,000 запросов (увеличено в 100 раз)
+  message: 'Слишком много запросов, попробуйте позже',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 1000, // максимум 1000 попыток входа (увеличено в 100 раз)
+  message: 'Слишком много попыток входа, попробуйте позже',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Более мягкий лимит для API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 50000, // максимум 50,000 запросов для API (увеличено в 100 раз)
+  message: 'Слишком много API запросов, попробуйте позже',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(generalLimiter);
+
+// CORS Security
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+
+// Middleware для обработки JSON с ограничениями
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Cookie parser для httpOnly cookies
+app.use(cookieParser());
+
+// XSS Protection
+app.use(sanitizeInput);
 
 // Обслуживание модулей клиентской части
 app.use('/modules', express.static(path.join(__dirname, '../client/modules')));
@@ -178,13 +251,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API маршруты
-app.use('/api/auth', authRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/roles', rolesRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/data', dataRoutes);
-app.use('/api/companies', companiesRoutes);
+// API маршруты с rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/users', apiLimiter, usersRoutes);
+app.use('/api/roles', apiLimiter, rolesRoutes);
+app.use('/api/settings', apiLimiter, settingsRoutes);
+app.use('/api/data', apiLimiter, dataRoutes);
+app.use('/api/companies', apiLimiter, companiesRoutes);
+app.use('/api/audit', apiLimiter, auditRoutes);
 
 // Обработка 404 ошибок
 app.use((req, res) => {

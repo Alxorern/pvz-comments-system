@@ -53,29 +53,29 @@ class RolesModule {
   async loadData() {
     try {
       console.log('🔄 Начинаем загрузку данных ролей...');
-      console.log('🔍 apiClient доступен:', !!window.apiClient);
+      console.log('🔍 secureApiClient доступен:', !!window.secureApiClient);
       console.log('🔍 utils доступен:', !!window.utils);
       
       // Загружаем роли
       console.log('📥 Загружаем роли...');
-      const rolesResponse = await window.apiClient.get('/api/roles');
+      const rolesResponse = await window.secureApiClient.get('/api/roles');
       console.log('📥 Ответ API ролей:', rolesResponse);
       
       if (rolesResponse && rolesResponse.success) {
-        this.cache.roles = rolesResponse.data;
-        console.log('✅ Загружено ролей:', rolesResponse.data.length);
+        this.cache.roles = rolesResponse.data || [];
+        console.log('✅ Загружено ролей:', rolesResponse.data ? rolesResponse.data.length : 0);
       } else {
         console.error('❌ Ошибка загрузки ролей:', rolesResponse);
       }
 
       // Загружаем регионы
       console.log('📥 Загружаем регионы...');
-      const regionsResponse = await window.apiClient.get('/api/roles/regions');
+      const regionsResponse = await window.secureApiClient.get('/api/roles/regions');
       console.log('📥 Ответ API регионов:', regionsResponse);
       
       if (regionsResponse && regionsResponse.success) {
-        this.cache.regions = regionsResponse.data;
-        console.log('✅ Загружено регионов:', regionsResponse.data.length);
+        this.cache.regions = regionsResponse.data || [];
+        console.log('✅ Загружено регионов:', regionsResponse.data ? regionsResponse.data.length : 0);
       } else {
         console.error('❌ Ошибка загрузки регионов:', regionsResponse);
       }
@@ -430,9 +430,9 @@ class RolesModule {
     try {
       let result;
       if (this.editingRoleId) {
-        result = await window.apiClient.put(`/api/roles/${this.editingRoleId}`, roleData);
+        result = await window.secureApiClient.put(`/api/roles/${this.editingRoleId}`, roleData);
       } else {
-        result = await window.apiClient.post('/api/roles', roleData);
+        result = await window.secureApiClient.post('/api/roles', roleData);
       }
 
       if (result && result.success) {
@@ -467,7 +467,7 @@ class RolesModule {
     }
 
     try {
-      const result = await window.apiClient.delete(`/api/roles/${roleId}`);
+      const result = await window.secureApiClient.delete(`/api/roles/${roleId}`);
       if (result && result.ok) {
         await this.loadData();
         this.renderRoles();

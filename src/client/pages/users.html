@@ -101,6 +101,7 @@
                 <div class="field">
                     <label class="label">Пароль</label>
                     <input type="password" id="addUserPassword" class="input" placeholder="Введите пароль" />
+                    <div class="field-hint">Минимум 6 символов</div>
                 </div>
                 <div class="field">
                     <label class="label">Роль</label>
@@ -143,6 +144,7 @@
                 <div class="field">
                     <label class="label">Новый пароль</label>
                     <input type="password" id="editUserPassword" class="input" placeholder="Оставьте пустым, чтобы не изменять" />
+                    <div class="field-hint">Минимум 6 символов (оставьте пустым, чтобы не изменять)</div>
                 </div>
                 <div class="field">
                     <label class="label">Роль</label>
@@ -166,7 +168,7 @@
     </div>
 
     <!-- Подключение модулей -->
-    <script src="/modules/shared/api.js"></script>
+    <script src="/modules/shared/secureApi.js"></script>
     <script src="/modules/shared/utils.js"></script>
     <script src="/modules/shared/theme.js"></script>
     <script src="/modules/shared/navigation.js"></script>
@@ -203,9 +205,8 @@
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
             
-            if (token && !localStorage.getItem('authToken')) {
-                console.log('🔑 Принудительно сохраняем токен из URL в localStorage');
-                localStorage.setItem('authToken', token);
+            if (token) {
+                console.log('🔑 Токен найден в URL, но больше не сохраняем в localStorage');
                 
                 // Очищаем URL от токена
                 const newUrl = window.location.pathname;
@@ -218,7 +219,7 @@
             console.log('🚀 Инициализация страницы: users');
 
             // Проверяем аутентификацию
-            if (!apiClient.checkAuthAndRedirect()) {
+            if (!secureApiClient.checkAuthAndRedirect()) {
                 return;
             }
 

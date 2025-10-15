@@ -3563,17 +3563,6 @@ tr.highlight td {
 
 /* Модальные окна для ролей - стили удалены, используются унифицированные .overlay */
 
-.modal-content {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: 14px;
-  box-shadow: var(--shadow-primary);
-  width: 600px;
-  max-width: calc(100vw - 24px);
-  max-height: 80vh;
-  overflow-y: auto;
-  position: relative;
-}
 
 .modal-header {
   display: flex;
@@ -3968,3 +3957,222 @@ body.login-page-body {
     }
 }
 
+
+
+/* Стили для подсказок полей */
+.field-hint {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+.field-hint.error {
+    color: #e74c3c;
+    font-weight: 500;
+}
+
+.field-hint.success {
+    color: #27ae60;
+    font-weight: 500;
+}
+
+/* ===== КНОПКИ ПРОБЛЕМ В МОДАЛЬНОМ ОКНЕ КОММЕНТАРИЕВ ===== */
+
+.problems-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-problem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-primary);
+}
+
+.btn-problem:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-problem.active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    font-weight: 600;
+}
+
+.problem-icon {
+    font-size: 16px;
+}
+
+/* Кнопка "Нет места" - ярко-красный цвет (максимально яркий) */
+.btn-problem-no-space {
+    border-color: #ff1111;
+    color: #ff1111;
+}
+
+.btn-problem-no-space:hover {
+    background: rgba(255, 17, 17, 0.25);
+    border-color: #ff0000;
+}
+
+.btn-problem-no-space.active {
+    background: rgba(255, 17, 17, 0.35);
+    border-color: #ff0000;
+    color: #ff0000;
+}
+
+/* Кнопка "Нет мебели" - ярко-фиолетовый цвет (максимально яркий) */
+.btn-problem-no-furniture {
+    border-color: #cc22ff;
+    color: #cc22ff;
+}
+
+.btn-problem-no-furniture:hover {
+    background: rgba(204, 34, 255, 0.25);
+    border-color: #bb00ff;
+}
+
+.btn-problem-no-furniture.active {
+    background: rgba(204, 34, 255, 0.35);
+    border-color: #aa00ff;
+    color: #aa00ff;
+}
+
+/* Кнопка "Не дозвонились" - ярко-синий цвет (максимально яркий) */
+.btn-problem-no-call {
+    border-color: #2288ff;
+    color: #2288ff;
+}
+
+.btn-problem-no-call:hover {
+    background: rgba(34, 136, 255, 0.25);
+    border-color: #0066ff;
+}
+
+.btn-problem-no-call.active {
+    background: rgba(34, 136, 255, 0.35);
+    border-color: #0044ff;
+    color: #0044ff;
+}
+
+/* Кнопка "Нет проблем" - зеленый цвет */
+.btn-problem-clear {
+    border-color: #16a34a;
+    color: #16a34a;
+}
+
+.btn-problem-clear:hover {
+    background: rgba(22, 163, 74, 0.1);
+    border-color: #15803d;
+}
+
+.btn-problem-clear.active {
+    background: rgba(22, 163, 74, 0.15);
+    border-color: #166534;
+    color: #166534;
+}
+
+/* ===== ЦВЕТОВАЯ ПОДСВЕТКА СТРОК ТАБЛИЦЫ (максимально яркая) ===== */
+
+.table-row-problem-no-space {
+    background: rgba(255, 17, 17, 0.2) !important;
+    border-left: 4px solid rgba(255, 17, 17, 0.8) !important;
+}
+
+.table-row-problem-no-furniture {
+    background: rgba(204, 34, 255, 0.2) !important;
+    border-left: 4px solid rgba(204, 34, 255, 0.8) !important;
+}
+
+.table-row-problem-no-call {
+    background: rgba(34, 136, 255, 0.2) !important;
+    border-left: 4px solid rgba(34, 136, 255, 0.8) !important;
+}
+
+/* Светлая тема для кнопок проблем */
+[data-theme="light"] .btn-problem {
+    background: #ffffff;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+[data-theme="light"] .btn-problem-no-space {
+    border-color: #ff1111;
+    color: #ff1111;
+}
+
+[data-theme="light"] .btn-problem-no-space:hover {
+    background: rgba(255, 17, 17, 0.15);
+}
+
+[data-theme="light"] .btn-problem-no-space.active {
+    background: rgba(255, 17, 17, 0.25);
+}
+
+[data-theme="light"] .btn-problem-no-furniture {
+    border-color: #cc22ff;
+    color: #cc22ff;
+}
+
+[data-theme="light"] .btn-problem-no-furniture:hover {
+    background: rgba(204, 34, 255, 0.15);
+}
+
+[data-theme="light"] .btn-problem-no-furniture.active {
+    background: rgba(204, 34, 255, 0.25);
+}
+
+[data-theme="light"] .btn-problem-no-call {
+    border-color: #2288ff;
+    color: #2288ff;
+}
+
+[data-theme="light"] .btn-problem-no-call:hover {
+    background: rgba(34, 136, 255, 0.15);
+}
+
+[data-theme="light"] .btn-problem-no-call.active {
+    background: rgba(34, 136, 255, 0.25);
+}
+
+[data-theme="light"] .btn-problem-clear {
+    border-color: #16a34a;
+    color: #16a34a;
+}
+
+[data-theme="light"] .btn-problem-clear:hover {
+    background: rgba(22, 163, 74, 0.05);
+}
+
+[data-theme="light"] .btn-problem-clear.active {
+    background: rgba(22, 163, 74, 0.1);
+}
+
+/* Светлая тема для подсветки строк (максимально яркая) */
+[data-theme="light"] .table-row-problem-no-space {
+    background: rgba(255, 17, 17, 0.15) !important;
+    border-left: 4px solid rgba(255, 17, 17, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-no-furniture {
+    background: rgba(204, 34, 255, 0.15) !important;
+    border-left: 4px solid rgba(204, 34, 255, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-no-call {
+    background: rgba(34, 136, 255, 0.15) !important;
+    border-left: 4px solid rgba(34, 136, 255, 0.6) !important;
+}

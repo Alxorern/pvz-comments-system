@@ -4,7 +4,7 @@ class CompaniesManager {
         this.currentPage = 1;
         this.currentFilters = {};
         this.editingCompanyId = null;
-        this.api = new ApiClient();
+        this.api = window.secureApiClient;
         this.allCompanies = [];
         this.filteredCompanies = [];
         this.filterTimeout = null;
@@ -106,6 +106,11 @@ class CompaniesManager {
                 const companyId = e.target.getAttribute('data-company-id');
                 const companyName = e.target.closest('tr').querySelector('td:nth-child(2)').textContent;
                 this.deleteCompany(companyId, companyName);
+            } else if (e.target.classList.contains('pagination-btn')) {
+                const page = parseInt(e.target.getAttribute('data-page'));
+                if (page && page > 0) {
+                    this.loadCompanies(page, this.currentSearch);
+                }
             }
         });
     }
@@ -119,7 +124,7 @@ class CompaniesManager {
                 const response = await this.api.get('/api/companies/all');
                 
                 if (response.success) {
-                    this.allCompanies = response.data;
+                    this.allCompanies = response.data || [];
                     console.log(`📊 Загружено ${this.allCompanies.length} компаний`);
                 } else {
                     throw new Error(response.error || 'Ошибка загрузки компаний');
@@ -226,7 +231,7 @@ class CompaniesManager {
         // Предыдущая страница
         if (pagination.page > 1) {
             paginationHTML += `
-                <button class="btn btn-sm btn-secondary" onclick="companiesManager.loadCompanies(${pagination.page - 1}, '${this.currentSearch}')">
+                <button class="btn btn-sm btn-secondary pagination-btn" data-page="${pagination.page - 1}">
                     ← Предыдущая
                 </button>
             `;
@@ -239,8 +244,8 @@ class CompaniesManager {
         for (let i = startPage; i <= endPage; i++) {
             const isActive = i === pagination.page ? 'active' : '';
             paginationHTML += `
-                <button class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'}" 
-                        onclick="companiesManager.loadCompanies(${i}, '${this.currentSearch}')">
+                <button class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-secondary'} pagination-btn" 
+                        data-page="${i}">
                     ${i}
                 </button>
             `;
@@ -249,7 +254,7 @@ class CompaniesManager {
         // Следующая страница
         if (pagination.page < pagination.pages) {
             paginationHTML += `
-                <button class="btn btn-sm btn-secondary" onclick="companiesManager.loadCompanies(${pagination.page + 1}, '${this.currentSearch}')">
+                <button class="btn btn-sm btn-secondary pagination-btn" data-page="${pagination.page + 1}">
                     Следующая →
                 </button>
             `;

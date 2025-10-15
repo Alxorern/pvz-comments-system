@@ -37,35 +37,30 @@ class AuthModule {
   /**
    * Проверка существующего токена при загрузке страницы
    */
-  checkExistingToken() {
-    const token = localStorage.getItem('authToken');
+  async checkExistingToken() {
     const currentPath = window.location.pathname;
     
-    if (token) {
-        // Проверяем валидность токена через простой API endpoint
-        fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-      .then(response => {
-        if (response.ok) {
-          // Токен валиден, перенаправляем на операции только если мы на странице входа
-          if (currentPath === '/' || currentPath === '/index.html') {
-            window.location.href = '/main?token=' + encodeURIComponent(token);
-          }
-          // Если мы уже на другой странице, не перенаправляем
-        } else {
-          // Токен невалиден, очищаем его
-          this.clearAuthData();
+    try {
+      // Не показываем сообщение о проверке аутентификации на странице логина
+      if (currentPath !== '/' && currentPath !== '/index.html') {
+        console.log('🔑 Проверяем аутентификацию через httpOnly cookie...');
+      }
+      
+      const authResult = await window.secureApiClient.checkAuth();
+      if (authResult.success) {
+        console.log('✅ Пользователь аутентифицирован');
+        // Перенаправляем на главную страницу только если мы на странице входа
+        if (currentPath === '/' || currentPath === '/index.html') {
+          window.location.href = '/main';
         }
-      })
-      .catch((error) => {
-        // Ошибка сети, очищаем токен
-        this.clearAuthData();
-      });
+      } else {
+        // Не показываем сообщение о неаутентификации на странице логина
+        if (currentPath !== '/' && currentPath !== '/index.html') {
+          console.log('❌ Пользователь не аутентифицирован');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Ошибка проверки аутентификации:', error);
     }
   }
 
@@ -97,27 +92,15 @@ class AuthModule {
     this.setStatus('Вход в систему...');
 
     try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ login, password })
-      });
+      const result = await window.secureApiClient.login(login, password);
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Сохраняем токен в localStorage
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
+      if (result.success) {
         this.setStatus('Успешный вход!');
         // Перенаправляем на главную страницу или на страницу, с которой пришли
         const returnUrl = new URLSearchParams(window.location.search).get('return') || '/main';
-        window.location.href = returnUrl + '?token=' + encodeURIComponent(data.token);
+        window.location.href = returnUrl;
       } else {
-        this.setStatus(data.error || 'Ошибка входа', true);
+        this.setStatus(result.error || 'Ошибка входа', true);
         if (btnLogin) btnLogin.disabled = false;
         this.isLoginInProgress = false;
       }
@@ -136,7 +119,7 @@ class AuthModule {
       // Вызываем API logout
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: apiClient.getAuthHeaders()
+        credentials: 'include'
       });
     } catch (error) {
       console.log('Ошибка при выходе из системы:', error);
@@ -152,8 +135,7 @@ class AuthModule {
    * Очистка данных аутентификации
    */
   clearAuthData() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    // Больше не используем localStorage для токенов
     sessionStorage.clear();
   }
 
@@ -171,24 +153,25 @@ class AuthModule {
   /**
    * Получение данных текущего пользователя
    */
-  getCurrentUser() {
-    const userData = localStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
+  async getCurrentUser() {
+    const authResult = await window.secureApiClient.checkAuth();
+    return authResult.success ? authResult.user : null;
   }
 
   /**
    * Проверка роли пользователя
    */
-  hasRole(role) {
-    const user = this.getCurrentUser();
+  async hasRole(role) {
+    const user = await this.getCurrentUser();
     return user && user.role === role;
   }
 
   /**
    * Проверка аутентификации
    */
-  isAuthenticated() {
-    return !!localStorage.getItem('authToken');
+  async isAuthenticated() {
+    const authResult = await window.secureApiClient.checkAuth();
+    return authResult.success;
   }
 
   /**
@@ -196,21 +179,9 @@ class AuthModule {
    */
   async getUserInfo() {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) return null;
-
-      const response = await fetch('/api/auth/user-info', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const userInfo = await response.json();
-        // НЕ сохраняем userInfo в localStorage - используем только 'user'
-        return userInfo;
+      const authResult = await window.secureApiClient.checkAuth();
+      if (authResult.success) {
+        return authResult.user;
       } else {
         console.error('Ошибка получения информации о пользователе');
         return null;

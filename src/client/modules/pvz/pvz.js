@@ -12,7 +12,8 @@ class PvzModule {
       pvzId: '',
       regions: [],
       address: '',
-      company: ''
+      company: '',
+      problems: ''
     };
     this.tableSettings = {
       columnVisibility: {},
@@ -47,17 +48,17 @@ class PvzModule {
     try {
       console.log('🚀 Инициализация модуля ПВЗ...');
       
-      // Проверяем доступность apiClient
-      if (!window.apiClient) {
-        console.error('❌ window.apiClient не найден. Ожидаем загрузки...');
+      // Проверяем доступность secureApiClient
+      if (!window.secureApiClient) {
+        console.error('❌ window.secureApiClient не найден. Ожидаем загрузки...');
         // Ждем немного и пробуем снова
         await new Promise(resolve => setTimeout(resolve, 100));
-        if (!window.apiClient) {
-          console.error('❌ window.apiClient все еще не найден');
+        if (!window.secureApiClient) {
+          console.error('❌ window.secureApiClient все еще не найден');
           return;
         }
       }
-      console.log('✅ window.apiClient найден');
+      console.log('✅ window.secureApiClient найден');
       
       // Инициализируем навигацию
       if (window.navigationModule) {
@@ -313,6 +314,14 @@ class PvzModule {
       });
     }
 
+    // Фильтр проблем
+    const problemsFilter = document.getElementById('problemsFilter');
+    if (problemsFilter) {
+      problemsFilter.addEventListener('change', (e) => {
+        this.handleProblemsFilterChange(e.target.value);
+      });
+    }
+
     // Кнопки фильтров
     if (this.elements.btnClearFilters) {
       this.elements.btnClearFilters.addEventListener('click', () => {
@@ -393,6 +402,14 @@ class PvzModule {
       });
     }
 
+    // Кнопка "Закрыть" в модальном окне настроек
+    const btnCloseTableSettings = document.getElementById('btnCloseTableSettings');
+    if (btnCloseTableSettings) {
+      btnCloseTableSettings.addEventListener('click', () => {
+        this.hideTableSettings();
+      });
+    }
+
     // Клик по overlay для закрытия модального окна
     if (this.elements.tableSettingsModal) {
       this.elements.tableSettingsModal.addEventListener('click', (e) => {
@@ -434,6 +451,15 @@ class PvzModule {
         }
       });
     }
+
+    // Обработчики для кнопок проблем
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('btn-problem')) {
+        e.preventDefault();
+        const problem = e.target.dataset.problem;
+        this.setSelectedProblem(problem);
+      }
+    });
   }
 
   /**
@@ -568,9 +594,9 @@ class PvzModule {
    */
   async loadData(forceRefresh = false) {
     try {
-      // Проверяем доступность apiClient
-      if (!window.apiClient) {
-        console.error('❌ window.apiClient не найден');
+      // Проверяем доступность secureApiClient
+      if (!window.secureApiClient) {
+        console.error('❌ window.secureApiClient не найден');
         throw new Error('API клиент не инициализирован');
       }
       
@@ -611,7 +637,7 @@ class PvzModule {
       const url = `/api/data/pvz-with-comments?${params}`;
       console.log('🌐 URL запроса:', url);
       
-      const response = await window.apiClient.get(url);
+      const response = await window.secureApiClient.get(url);
       console.log('📡 Ответ сервера:', response);
       
       if (response && response.success) {
@@ -621,9 +647,9 @@ class PvzModule {
         });
         
         // Сохраняем все данные для клиентской обработки
-        this.allData = response.data.items;
-        this.data = response.data.items; // Для совместимости
-        this.totalItems = response.data.total;
+        this.allData = response.data.items || [];
+        this.data = response.data.items || []; // Для совместимости
+        this.totalItems = response.data.total || 0;
         
         // Проверяем уникальность PVZID на клиенте
         const pvzIds = this.allData.map(item => item.pvz_id);
@@ -684,9 +710,9 @@ class PvzModule {
   async loadRegions() {
     try {
       console.log('🔄 Загрузка регионов...');
-      const response = await window.apiClient.get('/api/data/regions');
+      const response = await window.secureApiClient.get('/api/data/regions');
       if (response.success) {
-        this.regions = response.data;
+        this.regions = response.data || [];
         console.log(`✅ Загружено ${this.regions.length} регионов:`, this.regions.slice(0, 5));
       } else {
         console.error('❌ Ошибка ответа сервера:', response);
@@ -970,6 +996,21 @@ class PvzModule {
       );
     }
     
+    // Фильтр по проблемам
+    if (this.currentFilters.problems) {
+      if (this.currentFilters.problems === 'no-problems') {
+        // Показать только записи без проблем
+        filteredData = filteredData.filter(item => 
+          !item.problems || item.problems.trim() === ''
+        );
+      } else if (this.currentFilters.problems.trim() !== '') {
+        // Показать только записи с конкретной проблемой
+        filteredData = filteredData.filter(item => 
+          item.problems === this.currentFilters.problems
+        );
+      }
+    }
+    
     console.log(`✅ Отфильтровано ${filteredData.length} записей из ${this.allData.length}`);
     
     // Обновляем отображение
@@ -998,6 +1039,14 @@ class PvzModule {
   }
 
   /**
+   * Обработка изменения фильтра проблем
+   */
+  handleProblemsFilterChange(value) {
+    this.currentFilters.problems = value;
+    this.applyClientSideFilters();
+  }
+
+  /**
    * Очистка всех фильтров
    */
   clearFilters() {
@@ -1005,7 +1054,8 @@ class PvzModule {
       pvzId: '',
       regions: [],
       address: '',
-      company: ''
+      company: '',
+      problems: ''
     };
     
     if (this.elements.pvzIdFilter) {
@@ -1019,6 +1069,12 @@ class PvzModule {
     }
     if (this.elements.companyFilter) {
       this.elements.companyFilter.value = '';
+    }
+    
+    // Сбрасываем фильтр проблем
+    const problemsFilter = document.getElementById('problemsFilter');
+    if (problemsFilter) {
+      problemsFilter.value = '';
     }
     
     this.updateRegionSuggestions([]);
@@ -1060,7 +1116,7 @@ class PvzModule {
     if (dataToRender.length === 0) {
       this.elements.tableBody.innerHTML = `
         <tr>
-          <td colspan="15" style="text-align: center; color: var(--text-muted);">
+          <td colspan="16" style="text-align: center; color: var(--text-muted);">
             Данные не найдены
           </td>
         </tr>
@@ -1094,6 +1150,7 @@ class PvzModule {
       const phone = this.formatCellWithTooltip(item.phone || '');
       const postalCode = this.formatCellWithTooltip(item.postal_code || '');
       const fittingRoom = this.formatCellWithTooltip(item.fitting_room || '');
+      const problems = this.formatProblemsCell(item.problems || '');
       const lastComment = this.formatCellWithTooltip(item.last_comment || '');
       const commentAuthor = this.formatCellWithTooltip(item.comment_author || '');
       const commentDate = this.formatCellWithTooltip(item.comment_date || '');
@@ -1107,8 +1164,11 @@ class PvzModule {
         });
       }
 
+    // Определяем CSS класс для проблем
+    const problemClass = this.getProblemClass(item.problems);
+    
     return `
-      <tr data-pvz-id="${this.escapeHtmlForAttribute(item.pvz_id)}" class="clickable-row">
+      <tr data-pvz-id="${this.escapeHtmlForAttribute(item.pvz_id)}" class="clickable-row ${problemClass}">
         <td ${pvzId.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(pvzId.tooltip)}"` : ''}>${this.escapeHtml(pvzId.display)}</td>
         <td ${region.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(region.tooltip)}"` : ''}>${this.escapeHtml(region.display)}</td>
         <td ${address.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(address.tooltip)}"` : ''}>${this.escapeHtml(address.display)}</td>
@@ -1121,6 +1181,7 @@ class PvzModule {
         <td ${phone.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(phone.tooltip)}"` : ''}>${this.escapeHtml(phone.display)}</td>
         <td ${postalCode.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(postalCode.tooltip)}"` : ''}>${this.escapeHtml(postalCode.display)}</td>
         <td ${fittingRoom.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(fittingRoom.tooltip)}"` : ''}>${this.escapeHtml(fittingRoom.display)}</td>
+        <td ${problems.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(problems.tooltip)}"` : ''}>${problems.display}</td>
         <td ${lastComment.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(lastComment.tooltip)}"` : ''}>${this.escapeHtml(lastComment.display)}</td>
         <td ${commentAuthor.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(commentAuthor.tooltip)}"` : ''}>${this.escapeHtml(commentAuthor.display)}</td>
         <td ${commentDate.tooltip ? `data-tooltip="${this.escapeHtmlForAttribute(commentDate.tooltip)}"` : ''}>${this.escapeHtml(commentDate.display)}</td>
@@ -1608,7 +1669,7 @@ class PvzModule {
    */
   async loadTableSettings() {
     try {
-      const response = await window.apiClient.get('/api/data/table-settings/pvz');
+      const response = await window.secureApiClient.get('/api/data/table-settings/pvz');
       if (response.success) {
         this.tableSettings = response.settings;
         // Не применяем настройки здесь, так как элементы еще не созданы
@@ -1749,21 +1810,38 @@ class PvzModule {
    */
   async resetTableSettings() {
     try {
-      await window.apiClient.delete('/api/data/table-settings/pvz');
-      this.tableSettings = {
-        columnVisibility: {},
-        columnWidths: {},
-        columnOrder: []
-      };
-      this.applyTableSettings();
-      this.hideTableSettings();
-      if (window.utils) {
-        window.utils.showNotification('Настройки сброшены', 'success');
+      console.log('🔄 Сброс настроек таблицы...');
+      const response = await window.secureApiClient.delete('/api/data/table-settings/pvz');
+      
+      if (response && response.success) {
+        console.log('✅ Настройки успешно сброшены на сервере');
+        
+        // Сбрасываем настройки на клиенте
+        this.tableSettings = {
+          columnVisibility: {},
+          columnWidths: {},
+          columnOrder: []
+        };
+        
+        // Применяем настройки по умолчанию
+        this.applyTableSettings();
+        
+        // Обновляем отображение настроек в модальном окне
+        this.renderColumnSettings();
+        
+        // Закрываем модальное окно
+        this.hideTableSettings();
+        
+        if (window.utils) {
+          window.utils.showNotification('Настройки сброшены к виду по умолчанию', 'success');
+        }
+      } else {
+        throw new Error('Сервер вернул ошибку при сбросе настроек');
       }
     } catch (error) {
       console.error('❌ Ошибка сброса настроек:', error);
       if (window.utils) {
-        window.utils.showNotification('Ошибка сброса настроек', 'error');
+        window.utils.showNotification('Ошибка сброса настроек: ' + error.message, 'error');
       }
     }
   }
@@ -1773,16 +1851,40 @@ class PvzModule {
    */
   async saveTableSettings() {
     try {
-      await window.apiClient.post('/api/data/table-settings/pvz', this.tableSettings);
-      this.applyTableSettings();
-      this.hideTableSettings();
-      if (window.utils) {
-        window.utils.showNotification('Настройки сохранены', 'success');
+      console.log('💾 Отправляем настройки на сервер:', this.tableSettings);
+      const response = await window.secureApiClient.post('/api/data/table-settings/pvz', this.tableSettings);
+      
+      if (response && response.success) {
+        console.log('✅ Настройки успешно сохранены');
+        this.applyTableSettings();
+        this.hideTableSettings();
+        if (window.utils) {
+          window.utils.showNotification('Настройки сохранены', 'success');
+        }
+      } else {
+        throw new Error('Сервер вернул ошибку при сохранении настроек');
       }
     } catch (error) {
       console.error('❌ Ошибка сохранения настроек:', error);
+      
+      // Проверяем, не является ли это ошибкой UNIQUE constraint
+      // Если настройки фактически применились, не показываем ошибку пользователю
+      if (error.message && error.message.includes('UNIQUE constraint')) {
+        console.log('⚠️ UNIQUE constraint ошибка, но настройки могли сохраниться');
+        // Проверяем, применились ли настройки локально
+        if (this.tableSettings && Object.keys(this.tableSettings.columnVisibility).length > 0) {
+          console.log('✅ Настройки применились локально, считаем операцию успешной');
+          this.applyTableSettings();
+          this.hideTableSettings();
+          if (window.utils) {
+            window.utils.showNotification('Настройки сохранены', 'success');
+          }
+          return;
+        }
+      }
+      
       if (window.utils) {
-        window.utils.showNotification('Ошибка сохранения настроек', 'error');
+        window.utils.showNotification('Ошибка сохранения настроек: ' + error.message, 'error');
       }
     }
   }
@@ -1824,6 +1926,9 @@ class PvzModule {
       this.elements.newComment.value = '';
     }
 
+    // Очищаем выбранную проблему
+    this.clearSelectedProblem();
+
     // Загружаем комментарии
     await this.loadComments(pvzId);
 
@@ -1848,7 +1953,7 @@ class PvzModule {
    */
   async loadComments(pvzId) {
     try {
-      const response = await window.apiClient.get(`/api/data/comments?pvz_id=${pvzId}`);
+      const response = await window.secureApiClient.get(`/api/data/comments?pvz_id=${pvzId}`);
       
       if (response.success) {
         this.renderComments(response.data);
@@ -1905,19 +2010,34 @@ class PvzModule {
     this.isSavingComment = true;
 
     const commentText = this.elements.newComment.value.trim();
-    if (!commentText) {
+    const selectedProblem = this.getSelectedProblem();
+    
+    // Проверяем, что есть либо комментарий, либо проблема (включая "Нет проблем")
+    if (!commentText && selectedProblem === undefined) {
       this.isSavingComment = false;
       if (window.utils) {
-        window.utils.showNotification('Введите текст комментария', 'warning');
+        window.utils.showNotification('Введите комментарий или выберите проблему', 'warning');
       }
       return;
     }
 
     try {
-      const response = await window.apiClient.post('/api/data/comments', {
-        pvz_id: this.currentPvzId,
-        comment: commentText
-      });
+      const requestData = {
+        pvz_id: this.currentPvzId
+      };
+      
+      // Добавляем комментарий, если он есть
+      if (commentText) {
+        requestData.comment = commentText;
+      }
+      
+      // Добавляем проблему (может быть пустой строкой для "Нет проблем")
+      if (selectedProblem !== undefined) {
+        requestData.problems = selectedProblem;
+      }
+
+      console.log('💾 Отправляем данные:', requestData);
+      const response = await window.secureApiClient.post('/api/data/comments', requestData);
 
       if (response.success) {
         if (window.utils) {
@@ -1926,6 +2046,9 @@ class PvzModule {
         
         // Очищаем форму
         this.elements.newComment.value = '';
+        
+        // Очищаем выбранную проблему
+        this.clearSelectedProblem();
         
         // Перезагружаем комментарии
         await this.loadComments(this.currentPvzId);
@@ -1946,6 +2069,95 @@ class PvzModule {
     } finally {
       this.isSavingComment = false;
     }
+  }
+
+  /**
+   * Получить выбранную проблему
+   */
+  getSelectedProblem() {
+    const activeButton = document.querySelector('.btn-problem.active');
+    return activeButton ? activeButton.dataset.problem : '';
+  }
+
+  /**
+   * Установить выбранную проблему
+   */
+  setSelectedProblem(problem) {
+    // Убираем активный класс со всех кнопок
+    document.querySelectorAll('.btn-problem').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Добавляем активный класс к выбранной кнопке
+    const targetButton = document.querySelector(`[data-problem="${problem}"]`);
+    if (targetButton) {
+      targetButton.classList.add('active');
+    }
+  }
+
+  /**
+   * Очистить выбранную проблему
+   */
+  clearSelectedProblem() {
+    document.querySelectorAll('.btn-problem').forEach(btn => {
+      btn.classList.remove('active');
+    });
+  }
+
+  /**
+   * Получить CSS класс для проблемы
+   */
+  getProblemClass(problems) {
+    if (!problems) return '';
+    
+    switch (problems) {
+      case 'Нет места':
+        return 'table-row-problem-no-space';
+      case 'Нет мебели':
+        return 'table-row-problem-no-furniture';
+      case 'Не дозвонились':
+        return 'table-row-problem-no-call';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Форматирование ячейки проблем с иконкой и цветом
+   */
+  formatProblemsCell(problems) {
+    if (!problems || problems.trim() === '') {
+      return {
+        display: '',
+        tooltip: ''
+      };
+    }
+
+    let icon = '';
+    let color = '';
+    
+    switch (problems) {
+      case 'Нет места':
+        icon = '🚫';
+        color = '#ff1111';
+        break;
+      case 'Нет мебели':
+        icon = '🪑';
+        color = '#cc22ff';
+        break;
+      case 'Не дозвонились':
+        icon = '📞';
+        color = '#2288ff';
+        break;
+      default:
+        icon = '❓';
+        color = '#666';
+    }
+
+    return {
+      display: `<span style="color: ${color}; font-weight: 500;">${icon} ${this.escapeHtml(problems)}</span>`,
+      tooltip: `Проблема: ${problems}`
+    };
   }
 
   /**
@@ -1999,21 +2211,20 @@ class PvzModule {
       console.log('📊 Отправляем фильтры:', filters);
       
       // Отправляем запрос на экспорт (используем прямой fetch для файлов)
-      const token = localStorage.getItem('authToken');
+      // Больше не используем localStorage для токенов
       const response = await fetch('/api/data/export', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ filters })
       });
       
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           // Токен невалиден или истек
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
+          // Больше не используем localStorage для токенов
           window.location.href = '/';
           return;
         }

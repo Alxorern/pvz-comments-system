@@ -8,13 +8,19 @@ const JWT_EXPIRES_IN = '12h';
  * Middleware для проверки JWT токена для API запросов
  */
 function authenticateToken(req, res, next) {
-  // Проверяем заголовок Authorization: Bearer (стандартный для Yandex Cloud)
+  // Сначала проверяем httpOnly cookie
+  const cookieToken = req.cookies && req.cookies.auth_token;
+  
+  // Если нет cookie, проверяем заголовок Authorization: Bearer
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const headerToken = authHeader && authHeader.split(' ')[1];
+  
+  const token = cookieToken || headerToken;
 
   console.log('🔐 Проверка токена для API запроса:', {
     url: req.url,
     method: req.method,
+    hasCookie: !!cookieToken,
     hasAuthHeader: !!authHeader,
     tokenPreview: token ? token.substring(0, 20) + '...' : 'отсутствует'
   });
@@ -37,35 +43,31 @@ function authenticateToken(req, res, next) {
 
 /**
  * Middleware для проверки токена для страниц (с перенаправлением)
- * Позволяет загрузить страницу без токена, клиентский JS проверит токен из localStorage
+ * Перенаправляет на страницу входа при отсутствии валидного токена
  */
 function authenticatePage(req, res, next) {
-  // Проверяем токен в заголовке Authorization
+  // Сначала проверяем httpOnly cookie
+  const cookieToken = req.cookies && req.cookies.auth_token;
+  
+  // Если нет cookie, проверяем токен в заголовке Authorization
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const headerToken = authHeader && authHeader.split(' ')[1];
   
   // Если токена нет в заголовке, проверяем в query параметрах
   const queryToken = req.query.token;
   
-  const finalToken = token || queryToken;
+  const finalToken = cookieToken || headerToken || queryToken;
 
   if (!finalToken) {
-    // Если токена нет, позволяем загрузить страницу
-    // Клиентский JavaScript проверит токен из localStorage
-    console.log('⚠️ Токен не найден в запросе, позволяем загрузить страницу для проверки localStorage');
-    req.user = null; // Указываем, что пользователь не аутентифицирован на сервере
-    return next();
+    // Если токена нет, перенаправляем на страницу входа
+    return res.redirect('/login');
   }
 
   jwt.verify(finalToken, JWT_SECRET, (err, user) => {
     if (err) {
-      // Если токен невалиден, позволяем загрузить страницу
-      // Клиентский JavaScript перенаправит на логин
-      console.log('⚠️ Токен невалиден, позволяем загрузить страницу для клиентской проверки');
-      req.user = null;
-      return next();
+      // Если токен невалиден, перенаправляем на страницу входа
+      return res.redirect('/login');
     }
-    console.log('✅ Токен валиден для пользователя:', user.login);
     req.user = user;
     next();
   });

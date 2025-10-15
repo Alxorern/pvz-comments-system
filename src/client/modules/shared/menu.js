@@ -1,7 +1,7 @@
 // Модуль для управления меню в зависимости от роли пользователя
 class MenuManager {
     constructor() {
-        this.api = new ApiClient();
+        this.api = window.secureApiClient;
         this.menuItems = {
             'pvz': { url: '/pvz', text: 'Список ПВЗ', icon: '📦' },
             'companies': { url: '/companies', text: 'Компании', icon: '🏢' },
@@ -15,15 +15,12 @@ class MenuManager {
         try {
             console.log('🔧 Инициализация меню...');
             
-            // Сначала обновляем информацию о пользователе из localStorage
-            this.updateUserInfoFromStorage();
-            
             // Получаем информацию о пользователе с доступными пунктами меню
             const response = await this.api.get('/api/auth/user-info');
             
-            if (response && response.login) {
-                // API возвращает данные напрямую
-                const user = response;
+            if (response && response.success && response.user) {
+                // API возвращает { success: true, user: {...} }
+                const user = response.user;
                 console.log('👤 Пользователь:', user.login, 'Роль:', user.role);
                 
                 // Обновляем информацию о пользователе
@@ -32,26 +29,12 @@ class MenuManager {
                 // Показываем все пункты меню (пока нет системы ролей)
                 this.showAllMenuItems();
             } else {
-                console.warn('⚠️ Не удалось получить информацию о пользователе через API, используем localStorage');
-                // Fallback - получаем данные из localStorage
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    const user = JSON.parse(userData);
-                    console.log('👤 Пользователь из localStorage:', user.login);
-                    this.updateUserInfo(user);
-                }
+                console.warn('⚠️ Пользователь не аутентифицирован');
                 this.showAllMenuItems(); // Fallback - показываем все пункты
             }
             
         } catch (error) {
             console.error('❌ Ошибка инициализации меню:', error);
-            // Fallback - получаем данные из localStorage
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                const user = JSON.parse(userData);
-                console.log('👤 Пользователь из localStorage (fallback):', user.login);
-                this.updateUserInfo(user);
-            }
             this.showAllMenuItems(); // Fallback - показываем все пункты
         }
     }
@@ -98,21 +81,19 @@ class MenuManager {
             }
         });
         
-        // НЕ сохраняем в localStorage - это делает auth.js
+        // Уведомляем NavigationModule об изменении роли
+        if (window.navigationModule && window.navigationModule.updateUserRole) {
+            window.navigationModule.updateUserRole(user.role);
+        }
     }
 
     /**
      * Обновляет информацию о пользователе из localStorage
      */
     updateUserInfoFromStorage() {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-            const user = JSON.parse(userData);
-            console.log('👤 Обновляем информацию о пользователе из localStorage:', user.login);
-            this.updateUserInfo(user);
-        } else {
-            console.warn('⚠️ Данные пользователя не найдены в localStorage');
-        }
+        // Больше не используем localStorage для аутентификации
+        // Данные пользователя получаем через API с httpOnly cookies
+        console.log('🔒 Аутентификация через httpOnly cookies, localStorage не используется');
     }
 
     showAllMenuItems() {
