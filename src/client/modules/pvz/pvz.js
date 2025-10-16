@@ -13,6 +13,7 @@ class PvzModule {
       regions: [],
       address: '',
       company: '',
+      statuses: [],
       problems: ''
     };
     this.tableSettings = {
@@ -26,6 +27,8 @@ class PvzModule {
     this.filteredData = null; // Отфильтрованные данные
     this.selectedSuggestionIndex = -1;
     this.currentSuggestions = [];
+    this.selectedStatusSuggestionIndex = -1;
+    this.currentStatusSuggestions = [];
     this.filterTimeout = null;
     this.currentPvzId = null;
     this.isSortingInProgress = false; // Флаг для предотвращения множественных вызовов сортировки
@@ -121,6 +124,9 @@ class PvzModule {
       selectedRegions: document.getElementById('selectedRegions'),
       addressFilter: document.getElementById('addressFilter'),
       companyFilter: document.getElementById('companyFilter'),
+      statusSearchInput: document.getElementById('statusSearchInput'),
+      statusSuggestions: document.getElementById('statusSuggestions'),
+      selectedStatuses: document.getElementById('selectedStatuses'),
       btnClearFilters: document.getElementById('btnClearFilters'),
       btnExport: document.getElementById('btnExport'),
       btnRefresh: document.getElementById('btnRefresh'),
@@ -311,6 +317,37 @@ class PvzModule {
     if (this.elements.companyFilter) {
       this.elements.companyFilter.addEventListener('input', (e) => {
         this.handleTextFilterChange('company', e.target.value);
+      });
+    }
+
+    // Фильтры статусов
+    if (this.elements.statusSearchInput) {
+      this.elements.statusSearchInput.addEventListener('input', (e) => {
+        this.handleStatusSearch(e.target.value);
+      });
+      
+      // Закрытие списка предложений при потере фокуса
+      this.elements.statusSearchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          this.updateStatusSuggestions([]);
+        }, 150);
+      });
+      
+      // Поддержка клавиатуры
+      this.elements.statusSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.updateStatusSuggestions([]);
+          this.elements.statusSearchInput.blur();
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateStatusSuggestions(1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateStatusSuggestions(-1);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          this.selectHighlightedStatusSuggestion();
+        }
       });
     }
 
@@ -739,6 +776,25 @@ class PvzModule {
   }
 
   /**
+   * Обработка поиска статусов
+   */
+  handleStatusSearch(query) {
+    if (!query || query.length < 2) {
+      this.updateStatusSuggestions([]);
+      return;
+    }
+
+    // Получаем уникальные статусы из данных
+    const uniqueStatuses = [...new Set(this.allData.map(item => item.status_name).filter(Boolean))];
+    
+    const filteredStatuses = uniqueStatuses.filter(status => 
+      status.toLowerCase().includes(query.toLowerCase())
+    );
+
+    this.updateStatusSuggestions(filteredStatuses);
+  }
+
+  /**
    * Обновление списка предложений регионов
    */
   updateRegionSuggestions(regions) {
@@ -772,6 +828,39 @@ class PvzModule {
   }
 
   /**
+   * Обновление списка предложений статусов
+   */
+  updateStatusSuggestions(statuses) {
+    if (!this.elements.statusSuggestions) return;
+
+    this.elements.statusSuggestions.innerHTML = '';
+    this.currentStatusSuggestions = statuses;
+    this.selectedStatusSuggestionIndex = -1;
+
+    if (statuses.length === 0) {
+      this.elements.statusSuggestions.classList.remove('show');
+      return;
+    }
+
+    statuses.forEach((status, index) => {
+      const suggestion = document.createElement('div');
+      suggestion.className = 'suggestion-item';
+      suggestion.textContent = status;
+      suggestion.dataset.index = index;
+      suggestion.addEventListener('click', () => {
+        this.addStatusDirectly(status);
+        this.updateStatusSuggestions([]);
+        if (this.elements.statusSearchInput) {
+          this.elements.statusSearchInput.value = '';
+        }
+      });
+      this.elements.statusSuggestions.appendChild(suggestion);
+    });
+
+    this.elements.statusSuggestions.classList.add('show');
+  }
+
+  /**
    * Добавление региона напрямую
    */
   addRegionDirectly(region) {
@@ -790,6 +879,24 @@ class PvzModule {
   }
 
   /**
+   * Добавление статуса напрямую
+   */
+  addStatusDirectly(status) {
+    if (!this.currentFilters.statuses.includes(status)) {
+      this.currentFilters.statuses.push(status);
+      this.renderSelectedStatuses();
+      this.applyClientSideFilters(); // Применяем фильтр на клиенте
+      if (window.utils) {
+        window.utils.showNotification(`Статус "${status}" добавлен`, 'success');
+      }
+    } else {
+      if (window.utils) {
+        window.utils.showNotification(`Статус "${status}" уже добавлен`, 'warning');
+      }
+    }
+  }
+
+  /**
    * Добавление выбранного региона
    */
   addSelectedRegion() {
@@ -800,6 +907,19 @@ class PvzModule {
     this.addRegionDirectly(region);
     input.value = '';
     this.updateRegionSuggestions([]);
+  }
+
+  /**
+   * Добавление выбранного статуса
+   */
+  addSelectedStatus() {
+    const input = this.elements.statusSearchInput;
+    if (!input || !input.value.trim()) return;
+
+    const status = input.value.trim();
+    this.addStatusDirectly(status);
+    input.value = '';
+    this.updateStatusSuggestions([]);
   }
 
   /**
@@ -852,6 +972,55 @@ class PvzModule {
   }
 
   /**
+   * Навигация по предложениям статусов
+   */
+  navigateStatusSuggestions(direction) {
+    if (this.currentStatusSuggestions.length === 0) return;
+
+    // Убираем выделение с текущего элемента
+    if (this.selectedStatusSuggestionIndex >= 0) {
+      const currentSuggestion = this.elements.statusSuggestions.querySelector(`[data-index="${this.selectedStatusSuggestionIndex}"]`);
+      if (currentSuggestion) {
+        currentSuggestion.classList.remove('highlighted');
+      }
+    }
+
+    // Вычисляем новый индекс
+    this.selectedStatusSuggestionIndex += direction;
+
+    // Ограничиваем индекс
+    if (this.selectedStatusSuggestionIndex < 0) {
+      this.selectedStatusSuggestionIndex = this.currentStatusSuggestions.length - 1;
+    } else if (this.selectedStatusSuggestionIndex >= this.currentStatusSuggestions.length) {
+      this.selectedStatusSuggestionIndex = 0;
+    }
+
+    // Выделяем новый элемент
+    const newSuggestion = this.elements.statusSuggestions.querySelector(`[data-index="${this.selectedStatusSuggestionIndex}"]`);
+    if (newSuggestion) {
+      newSuggestion.classList.add('highlighted');
+      newSuggestion.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  /**
+   * Выбор выделенного предложения статуса
+   */
+  selectHighlightedStatusSuggestion() {
+    if (this.selectedStatusSuggestionIndex >= 0 && this.selectedStatusSuggestionIndex < this.currentStatusSuggestions.length) {
+      const status = this.currentStatusSuggestions[this.selectedStatusSuggestionIndex];
+      this.addStatusDirectly(status);
+      this.updateStatusSuggestions([]);
+      if (this.elements.statusSearchInput) {
+        this.elements.statusSearchInput.value = '';
+      }
+    } else {
+      // Если ничего не выделено, добавляем то, что введено в поле
+      this.addSelectedStatus();
+    }
+  }
+
+  /**
    * Отображение выбранных регионов
    */
   renderSelectedRegions() {
@@ -877,11 +1046,45 @@ class PvzModule {
   }
 
   /**
+   * Отображение выбранных статусов
+   */
+  renderSelectedStatuses() {
+    if (!this.elements.selectedStatuses) return;
+
+    this.elements.selectedStatuses.innerHTML = '';
+    
+    this.currentFilters.statuses.forEach(status => {
+      const statusCloud = document.createElement('span');
+      statusCloud.className = 'region-cloud';
+      statusCloud.innerHTML = `
+        <span class="region-name" title="${status}">${this.truncateText(status, 20)}</span>
+        <button class="remove-region-btn" data-status="${status}">&times;</button>
+      `;
+      
+      const removeBtn = statusCloud.querySelector('.remove-region-btn');
+      removeBtn.addEventListener('click', () => {
+        this.removeStatus(status);
+      });
+      
+      this.elements.selectedStatuses.appendChild(statusCloud);
+    });
+  }
+
+  /**
    * Удаление региона из фильтра
    */
   removeRegion(region) {
     this.currentFilters.regions = this.currentFilters.regions.filter(r => r !== region);
     this.renderSelectedRegions();
+    this.applyClientSideFilters(); // Применяем фильтр на клиенте
+  }
+
+  /**
+   * Удаление статуса из фильтра
+   */
+  removeStatus(status) {
+    this.currentFilters.statuses = this.currentFilters.statuses.filter(s => s !== status);
+    this.renderSelectedStatuses();
     this.applyClientSideFilters(); // Применяем фильтр на клиенте
   }
 
@@ -996,6 +1199,13 @@ class PvzModule {
       );
     }
     
+    // Фильтр по статусам (множественный выбор)
+    if (this.currentFilters.statuses && this.currentFilters.statuses.length > 0) {
+      filteredData = filteredData.filter(item => 
+        item.status_name && this.currentFilters.statuses.includes(item.status_name)
+      );
+    }
+    
     // Фильтр по проблемам
     if (this.currentFilters.problems) {
       if (this.currentFilters.problems === 'no-problems') {
@@ -1055,6 +1265,7 @@ class PvzModule {
       regions: [],
       address: '',
       company: '',
+      statuses: [],
       problems: ''
     };
     
@@ -1070,6 +1281,9 @@ class PvzModule {
     if (this.elements.companyFilter) {
       this.elements.companyFilter.value = '';
     }
+    if (this.elements.statusSearchInput) {
+      this.elements.statusSearchInput.value = '';
+    }
     
     // Сбрасываем фильтр проблем
     const problemsFilter = document.getElementById('problemsFilter');
@@ -1079,6 +1293,8 @@ class PvzModule {
     
     this.updateRegionSuggestions([]);
     this.renderSelectedRegions();
+    this.updateStatusSuggestions([]);
+    this.renderSelectedStatuses();
     
     // Сбрасываем клиентские фильтры
     this.filteredData = null;

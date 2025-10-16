@@ -90,6 +90,12 @@
                         <input type="text" id="companyFilter" placeholder="Поиск по компании...">
                     </div>
                     
+                    <div class="filter-group filter-status">
+                        <label for="statusSearchInput">Статус:</label>
+                        <input type="text" id="statusSearchInput" placeholder="Поиск по статусу...">
+                        <div id="statusSuggestions" class="suggestions-list"></div>
+                    </div>
+                    
                     <div class="filter-group filter-problems">
                         <label for="problemsFilter">Проблемы:</label>
                         <select id="problemsFilter">
@@ -108,6 +114,7 @@
                 </div>
                 
                 <div id="selectedRegions" class="selected-regions"></div>
+                <div id="selectedStatuses" class="selected-regions"></div>
             </div>
 
             <!-- Таблица -->

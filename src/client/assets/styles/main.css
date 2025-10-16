@@ -2569,6 +2569,11 @@ tr.highlight td {
   max-width: 200px;
 }
 
+.filters-row .filter-status {
+  min-width: 150px;
+  max-width: 200px;
+}
+
 .filters-row .filter-group label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
