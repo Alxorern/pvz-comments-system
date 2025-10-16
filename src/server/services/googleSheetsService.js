@@ -434,48 +434,73 @@ class GoogleSheetsService {
           WHERE pvz_id = excluded.pvz_id
         `;
 
-        const upsertStmt = db.prepare(upsertSQL);
-        let completed = 0;
-        let totalChanges = 0;
-        let hasError = false;
+        // Получаем все существующие pvz_id одним запросом
+        const pvzIds = records.map(r => r.pvz_id);
+        const placeholders = pvzIds.map(() => '?').join(',');
+        const checkSQL = `SELECT pvz_id FROM pvz WHERE pvz_id IN (${placeholders})`;
+        
+        db.all(checkSQL, pvzIds, (err, existingRows) => {
+          if (err) {
+            db.run('ROLLBACK', () => {
+              reject(err);
+            });
+            return;
+          }
+          
+          const existingPvzIds = new Set(existingRows.map(row => row.pvz_id));
+          console.log(`📊 Найдено ${existingPvzIds.size} существующих записей из ${records.length}`);
+          
+          // Теперь выполняем UPSERT
+          const upsertStmt = db.prepare(upsertSQL);
+          let completed = 0;
+          let insertedCount = 0;
+          let updatedCount = 0;
+          let hasError = false;
 
-        for (const record of records) {
-          upsertStmt.run([
-            record.pvz_id, record.region, record.address, record.service_name,
-            record.status_date, record.status_name, record.company_id,
-            record.transaction_date, record.transaction_amount,
-            record.postal_code, record.fitting_room, record.phone
-          ], function(err) {
-            if (err && !hasError) {
-              hasError = true;
-              console.error('❌ Ошибка UPSERT:', err);
-              upsertStmt.finalize();
-              db.run('ROLLBACK', () => {
-                reject(err);
-              });
-              return;
-            }
-            
-            totalChanges += this.changes;
-            completed++;
-            
-            if (completed === records.length && !hasError) {
-              upsertStmt.finalize();
-              
-              // Коммитим транзакцию
-              db.run('COMMIT', (err) => {
-                if (err) {
-                  console.error('❌ Ошибка коммита транзакции:', err);
+          for (const record of records) {
+            upsertStmt.run([
+              record.pvz_id, record.region, record.address, record.service_name,
+              record.status_date, record.status_name, record.company_id,
+              record.transaction_date, record.transaction_amount,
+              record.postal_code, record.fitting_room, record.phone
+            ], function(err) {
+              if (err && !hasError) {
+                hasError = true;
+                console.error('❌ Ошибка UPSERT:', err);
+                upsertStmt.finalize();
+                db.run('ROLLBACK', () => {
                   reject(err);
-                  return;
-                }
+                });
+                return;
+              }
+              
+              // Правильно считаем созданные vs обновленные
+              if (existingPvzIds.has(record.pvz_id)) {
+                updatedCount++;
+              } else {
+                insertedCount++;
+              }
+              
+              completed++;
+              
+              if (completed === records.length && !hasError) {
+                upsertStmt.finalize();
                 
-                console.log(`✅ Оптимизированный UPSERT завершен: ${totalChanges} изменений из ${records.length} записей`);
-                resolve({ inserted: totalChanges, updated: records.length - totalChanges });
-              });
-            }
-          });
-        }
+                // Коммитим транзакцию
+                db.run('COMMIT', (err) => {
+                  if (err) {
+                    console.error('❌ Ошибка коммита транзакции:', err);
+                    reject(err);
+                    return;
+                  }
+                  
+                  console.log(`✅ Оптимизированный UPSERT завершен: ${insertedCount} новых, ${updatedCount} обновленных записей`);
+                  resolve({ inserted: insertedCount, updated: updatedCount });
+                });
+              }
+            });
+          }
+        });
       });
     });
   }
