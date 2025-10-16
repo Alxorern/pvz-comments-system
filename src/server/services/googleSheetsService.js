@@ -172,7 +172,6 @@ class GoogleSheetsService {
         syncType = 'pvz',
         status,
         message,
-        details = null,
         recordsProcessed = 0,
         recordsCreated = 0,
         recordsUpdated = 0,
@@ -183,11 +182,11 @@ class GoogleSheetsService {
       await new Promise((resolve, reject) => {
         db.run(`
           INSERT INTO google_sync_log (
-            sync_type, status, message, details, records_processed,
+            sync_type, status, message, records_processed,
             records_created, records_updated, records_skipped, execution_time_ms
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-          syncType, status, message, details, recordsProcessed,
+          syncType, status, message, recordsProcessed,
           recordsCreated, recordsUpdated, recordsSkipped, executionTimeMs
         ], function(err) {
           if (err) reject(err);
@@ -239,7 +238,6 @@ class GoogleSheetsService {
         const errorMsg = 'Настройки таблицы ПВЗ не найдены';
         logData.status = 'error';
         logData.message = errorMsg;
-        logData.details = 'Отсутствуют pvzTableId или pvzSheetName в настройках';
         throw new Error(errorMsg);
       }
 
@@ -267,8 +265,8 @@ class GoogleSheetsService {
       for (let i = 0; i < googleData.length; i++) {
         const row = googleData[i];
         
-        // Показываем прогресс каждые 1000 записей
-        if (i % 1000 === 0) {
+        // Показываем прогресс каждые 5000 записей
+        if (i % 5000 === 0) {
           console.log(`📊 Обработано ${i} из ${googleData.length} записей...`);
         }
         
@@ -326,41 +324,15 @@ class GoogleSheetsService {
         };
       }
 
-      // Используем UPSERT для всех записей (INSERT OR REPLACE)
+      // Используем одну транзакцию для всех записей
       try {
-        const result = await this.batchUpsertPvz(db, validPvzData);
+        const result = await this.optimizedUpsertPvz(db, validPvzData);
         syncedCount = result.inserted;
         updatedCount = result.updated;
         console.log(`✅ UPSERT завершен: ${result.inserted} новых, ${result.updated} обновленных записей`);
       } catch (error) {
         console.error(`❌ Ошибка UPSERT:`, error);
-        // Fallback: пробуем по одной записи
-        let insertedCount = 0;
-        let updatedCount = 0;
-        for (const record of validPvzData) {
-          try {
-            await this.singleUpsertPvz(db, record);
-            // Проверяем, была ли запись создана или обновлена
-            const existing = await new Promise((resolve, reject) => {
-              db.get('SELECT updated_at FROM pvz WHERE pvz_id = ?', [record.pvz_id], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-              });
-            });
-            if (existing && existing.updated_at) {
-              updatedCount++;
-            } else {
-              insertedCount++;
-            }
-          } catch (singleError) {
-            console.error(`❌ Ошибка UPSERT записи ${record.pvz_id}:`, singleError);
-            skippedRecords.push({ reason: `Ошибка UPSERT: ${singleError.message}`, row: record });
-            skippedCount++;
-          }
-        }
-        syncedCount = insertedCount;
-        updatedCount = updatedCount;
-        console.log(`⚠️ Fallback UPSERT: ${insertedCount} новых, ${updatedCount} обновленных записей`);
+        throw error;
       }
 
       // Синхронизируем регионы
@@ -415,7 +387,6 @@ class GoogleSheetsService {
       // Логируем ошибку
       logData.status = 'error';
       logData.message = 'Ошибка синхронизации данных ПВЗ';
-      logData.details = error.message;
       logData.executionTimeMs = Date.now() - startTime;
       
       throw error;
@@ -426,73 +397,86 @@ class GoogleSheetsService {
   }
 
   /**
-   * Batch UPSERT для записей ПВЗ (оптимизированная версия)
+   * Оптимизированный UPSERT для записей ПВЗ (одна транзакция)
    */
-  async batchUpsertPvz(db, records) {
+  async optimizedUpsertPvz(db, records) {
     if (records.length === 0) return { inserted: 0, updated: 0 };
 
-    // Правильный UPSERT: обновляем только данные из Google Sheets, сохраняем локальные поля
-    const upsertSQL = `
-      INSERT INTO pvz (
-        pvz_id, region, address, service_name, status_date,
-        status_name, company_id, transaction_date, transaction_amount,
-        postal_code, fitting_room, phone, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(pvz_id) DO UPDATE SET
-        region = excluded.region,
-        address = excluded.address,
-        service_name = excluded.service_name,
-        status_date = excluded.status_date,
-        status_name = excluded.status_name,
-        company_id = excluded.company_id,
-        transaction_date = excluded.transaction_date,
-        transaction_amount = excluded.transaction_amount,
-        postal_code = excluded.postal_code,
-        fitting_room = excluded.fitting_room,
-        phone = excluded.phone,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE pvz_id = excluded.pvz_id
-    `;
-
+    console.log(`🔄 Начинаем оптимизированный UPSERT для ${records.length} записей...`);
+    
     return new Promise((resolve, reject) => {
-      const upsertStmt = db.prepare(upsertSQL);
-      let completed = 0;
-      let totalChanges = 0;
-      let hasError = false;
-      
-      console.log(`🔄 Начинаем batch UPSERT для ${records.length} записей...`);
-      
-      for (const record of records) {
-        upsertStmt.run([
-          record.pvz_id, record.region, record.address, record.service_name,
-          record.status_date, record.status_name, record.company_id,
-          record.transaction_date, record.transaction_amount,
-          record.postal_code, record.fitting_room, record.phone
-        ], function(err) {
-          if (err && !hasError) {
-            hasError = true;
-            console.error('❌ Ошибка batch UPSERT:', err);
-            upsertStmt.finalize();
-            reject(err);
-            return;
-          }
-          
-          totalChanges += this.changes;
-          completed++;
-          
-          // Показываем прогресс каждые 1000 записей
-          if (completed % 1000 === 0) {
-            console.log(`📊 Обработано ${completed} из ${records.length} записей...`);
-          }
-          
-          if (completed === records.length && !hasError) {
-            upsertStmt.finalize();
-            console.log(`📊 Batch UPSERT завершен: ${totalChanges} изменений из ${records.length} записей`);
-            // Приблизительно считаем: если changes > 0, то это новая запись, иначе обновление
-            resolve({ inserted: totalChanges, updated: records.length - totalChanges });
-          }
-        });
-      }
+      // Начинаем транзакцию
+      db.run('BEGIN TRANSACTION', (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        const upsertSQL = `
+          INSERT INTO pvz (
+            pvz_id, region, address, service_name, status_date,
+            status_name, company_id, transaction_date, transaction_amount,
+            postal_code, fitting_room, phone, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(pvz_id) DO UPDATE SET
+            region = excluded.region,
+            address = excluded.address,
+            service_name = excluded.service_name,
+            status_date = excluded.status_date,
+            status_name = excluded.status_name,
+            company_id = excluded.company_id,
+            transaction_date = excluded.transaction_date,
+            transaction_amount = excluded.transaction_amount,
+            postal_code = excluded.postal_code,
+            fitting_room = excluded.fitting_room,
+            phone = excluded.phone,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE pvz_id = excluded.pvz_id
+        `;
+
+        const upsertStmt = db.prepare(upsertSQL);
+        let completed = 0;
+        let totalChanges = 0;
+        let hasError = false;
+
+        for (const record of records) {
+          upsertStmt.run([
+            record.pvz_id, record.region, record.address, record.service_name,
+            record.status_date, record.status_name, record.company_id,
+            record.transaction_date, record.transaction_amount,
+            record.postal_code, record.fitting_room, record.phone
+          ], function(err) {
+            if (err && !hasError) {
+              hasError = true;
+              console.error('❌ Ошибка UPSERT:', err);
+              upsertStmt.finalize();
+              db.run('ROLLBACK', () => {
+                reject(err);
+              });
+              return;
+            }
+            
+            totalChanges += this.changes;
+            completed++;
+            
+            if (completed === records.length && !hasError) {
+              upsertStmt.finalize();
+              
+              // Коммитим транзакцию
+              db.run('COMMIT', (err) => {
+                if (err) {
+                  console.error('❌ Ошибка коммита транзакции:', err);
+                  reject(err);
+                  return;
+                }
+                
+                console.log(`✅ Оптимизированный UPSERT завершен: ${totalChanges} изменений из ${records.length} записей`);
+                resolve({ inserted: totalChanges, updated: records.length - totalChanges });
+              });
+            }
+          });
+        }
+      });
     });
   }
 
