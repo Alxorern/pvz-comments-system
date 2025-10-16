@@ -431,57 +431,68 @@ class GoogleSheetsService {
   async batchUpsertPvz(db, records) {
     if (records.length === 0) return { inserted: 0, updated: 0 };
 
-    // Оптимизированный UPSERT с использованием INSERT OR REPLACE
+    // Правильный UPSERT: обновляем только данные из Google Sheets, сохраняем локальные поля
     const upsertSQL = `
-      INSERT OR REPLACE INTO pvz (
+      INSERT INTO pvz (
         pvz_id, region, address, service_name, status_date,
         status_name, company_id, transaction_date, transaction_amount,
         postal_code, fitting_room, phone, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(pvz_id) DO UPDATE SET
+        region = excluded.region,
+        address = excluded.address,
+        service_name = excluded.service_name,
+        status_date = excluded.status_date,
+        status_name = excluded.status_name,
+        company_id = excluded.company_id,
+        transaction_date = excluded.transaction_date,
+        transaction_amount = excluded.transaction_amount,
+        postal_code = excluded.postal_code,
+        fitting_room = excluded.fitting_room,
+        phone = excluded.phone,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE pvz_id = excluded.pvz_id
     `;
 
     return new Promise((resolve, reject) => {
-      // Используем db.serialize() для последовательного выполнения, но без вложенных транзакций
-      db.serialize(() => {
-        const upsertStmt = db.prepare(upsertSQL);
-        let completed = 0;
-        let totalChanges = 0;
-        let hasError = false;
-        
-        console.log(`🔄 Начинаем batch UPSERT для ${records.length} записей...`);
-        
-        for (const record of records) {
-          upsertStmt.run([
-            record.pvz_id, record.region, record.address, record.service_name,
-            record.status_date, record.status_name, record.company_id,
-            record.transaction_date, record.transaction_amount,
-            record.postal_code, record.fitting_room, record.phone
-          ], function(err) {
-            if (err && !hasError) {
-              hasError = true;
-              console.error('❌ Ошибка batch UPSERT:', err);
-              upsertStmt.finalize();
-              reject(err);
-              return;
-            }
-            
-            totalChanges += this.changes;
-            completed++;
-            
-            // Показываем прогресс каждые 1000 записей
-            if (completed % 1000 === 0) {
-              console.log(`📊 Обработано ${completed} из ${records.length} записей...`);
-            }
-            
-            if (completed === records.length && !hasError) {
-              upsertStmt.finalize();
-              console.log(`📊 Batch UPSERT завершен: ${totalChanges} изменений из ${records.length} записей`);
-              // Приблизительно считаем: если changes > 0, то это новая запись, иначе обновление
-              resolve({ inserted: totalChanges, updated: records.length - totalChanges });
-            }
-          });
-        }
-      });
+      const upsertStmt = db.prepare(upsertSQL);
+      let completed = 0;
+      let totalChanges = 0;
+      let hasError = false;
+      
+      console.log(`🔄 Начинаем batch UPSERT для ${records.length} записей...`);
+      
+      for (const record of records) {
+        upsertStmt.run([
+          record.pvz_id, record.region, record.address, record.service_name,
+          record.status_date, record.status_name, record.company_id,
+          record.transaction_date, record.transaction_amount,
+          record.postal_code, record.fitting_room, record.phone
+        ], function(err) {
+          if (err && !hasError) {
+            hasError = true;
+            console.error('❌ Ошибка batch UPSERT:', err);
+            upsertStmt.finalize();
+            reject(err);
+            return;
+          }
+          
+          totalChanges += this.changes;
+          completed++;
+          
+          // Показываем прогресс каждые 1000 записей
+          if (completed % 1000 === 0) {
+            console.log(`📊 Обработано ${completed} из ${records.length} записей...`);
+          }
+          
+          if (completed === records.length && !hasError) {
+            upsertStmt.finalize();
+            console.log(`📊 Batch UPSERT завершен: ${totalChanges} изменений из ${records.length} записей`);
+            // Приблизительно считаем: если changes > 0, то это новая запись, иначе обновление
+            resolve({ inserted: totalChanges, updated: records.length - totalChanges });
+          }
+        });
+      }
     });
   }
 
@@ -490,11 +501,25 @@ class GoogleSheetsService {
    */
   async singleUpsertPvz(db, record) {
     const upsertSQL = `
-      INSERT OR REPLACE INTO pvz (
+      INSERT INTO pvz (
         pvz_id, region, address, service_name, status_date,
         status_name, company_id, transaction_date, transaction_amount,
         postal_code, fitting_room, phone, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(pvz_id) DO UPDATE SET
+        region = excluded.region,
+        address = excluded.address,
+        service_name = excluded.service_name,
+        status_date = excluded.status_date,
+        status_name = excluded.status_name,
+        company_id = excluded.company_id,
+        transaction_date = excluded.transaction_date,
+        transaction_amount = excluded.transaction_amount,
+        postal_code = excluded.postal_code,
+        fitting_room = excluded.fitting_room,
+        phone = excluded.phone,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE pvz_id = excluded.pvz_id
     `;
 
     return new Promise((resolve, reject) => {
@@ -595,52 +620,49 @@ class GoogleSheetsService {
           }
 
           // Компания не найдена — пытаемся вставить с уникальным ограничением
-          db.serialize(() => {
+          db.get(
+            'SELECT MAX(CAST(company_id AS INTEGER)) as max_id FROM companies WHERE company_id GLOB "[0-9]*"',
+            [],
+            (err, maxRow) => {
+              if (err) {
+                reject(err);
+                return;
+              }
 
-            db.get(
-              'SELECT MAX(CAST(company_id AS INTEGER)) as max_id FROM companies WHERE company_id GLOB "[0-9]*"',
-              [],
-              (err, maxRow) => {
-                if (err) {
-                  reject(err);
-                  return;
-                }
+              const nextId = (maxRow?.max_id || 0) + 1;
+              const companyId = String(nextId).padStart(6, '0');
 
-                const nextId = (maxRow?.max_id || 0) + 1;
-                const companyId = String(nextId).padStart(6, '0');
+              // Вставляем с защитой от дублей по названию (phone остается пустым для новых компаний)
+              db.run(
+                'INSERT OR IGNORE INTO companies (company_id, company_name, phone) VALUES (?, ?, ?)',
+                [companyId, normalizedName, null],
+                function(err) {
+                  if (err) {
+                    reject(err);
+                    return;
+                  }
 
-                // Вставляем с защитой от дублей по названию (phone остается пустым для новых компаний)
-                db.run(
-                  'INSERT OR IGNORE INTO companies (company_id, company_name, phone) VALUES (?, ?, ?)',
-                  [companyId, normalizedName, null],
-                  function(err) {
+                  // Если вставка проигнорирована из-за уникального индекса,
+                  // просто получаем существующий company_id
+                  const fetchSql = 'SELECT company_id FROM companies WHERE company_name = ?';
+                  db.get(fetchSql, [normalizedName], (err, fetched) => {
                     if (err) {
                       reject(err);
                       return;
                     }
-
-                    // Если вставка проигнорирована из-за уникального индекса,
-                    // просто получаем существующий company_id
-                    const fetchSql = 'SELECT company_id FROM companies WHERE company_name = ?';
-                    db.get(fetchSql, [normalizedName], (err, fetched) => {
-                      if (err) {
-                        reject(err);
-                        return;
-                      }
-                      const finalId = fetched?.company_id || companyId;
-                      self.companyNameToId.set(normalizedName, finalId);
-                      if (fetched) {
-                        resolve(finalId);
-                      } else {
-                        console.log(`🏢 Создана новая компания: ${normalizedName} (ID: ${companyId})`);
-                        resolve(companyId);
-                      }
-                    });
-                  }
-                );
-              }
-            );
-          });
+                    const finalId = fetched?.company_id || companyId;
+                    self.companyNameToId.set(normalizedName, finalId);
+                    if (fetched) {
+                      resolve(finalId);
+                    } else {
+                      console.log(`🏢 Создана новая компания: ${normalizedName} (ID: ${companyId})`);
+                      resolve(companyId);
+                    }
+                  });
+                }
+              );
+            }
+          );
         }
       );
     });
