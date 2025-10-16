@@ -326,6 +326,11 @@ class PvzModule {
         this.handleStatusSearch(e.target.value);
       });
       
+      // Показ списка статусов при фокусе
+      this.elements.statusSearchInput.addEventListener('focus', () => {
+        this.handleStatusSearch(this.elements.statusSearchInput.value);
+      });
+      
       // Закрытие списка предложений при потере фокуса
       this.elements.statusSearchInput.addEventListener('blur', () => {
         setTimeout(() => {
@@ -779,14 +784,16 @@ class PvzModule {
    * Обработка поиска статусов
    */
   handleStatusSearch(query) {
-    if (!query || query.length < 2) {
-      this.updateStatusSuggestions([]);
-      return;
-    }
-
     // Получаем уникальные статусы из данных
     const uniqueStatuses = [...new Set(this.allData.map(item => item.status_name).filter(Boolean))];
     
+    if (!query || query.trim() === '') {
+      // Если поле пустое, показываем все статусы
+      this.updateStatusSuggestions(uniqueStatuses);
+      return;
+    }
+
+    // Если есть текст, фильтруем статусы
     const filteredStatuses = uniqueStatuses.filter(status => 
       status.toLowerCase().includes(query.toLowerCase())
     );
