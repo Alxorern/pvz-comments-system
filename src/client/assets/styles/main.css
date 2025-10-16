@@ -650,7 +650,7 @@ p {
     box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
 }
 
-.btn.small { 
+.btn.small {
     height: var(--button-height-sm);
     padding: 0 var(--spacing-md);
     font-size: var(--font-size-xs);
@@ -4142,6 +4142,93 @@ body.login-page-body {
     color: #166534;
 }
 
+/* Кнопка "Некомплект" - ярко-оранжевый цвет */
+.btn-problem-incomplete {
+    border-color: #ff6600;
+    color: #ff6600;
+}
+
+.btn-problem-incomplete:hover {
+    background: rgba(255, 102, 0, 0.25);
+    border-color: #ff5500;
+}
+
+.btn-problem-incomplete.active {
+    background: rgba(255, 102, 0, 0.35);
+    border-color: #ff4400;
+    color: #ff4400;
+}
+
+/* Кнопка "Не пустили в ОПС" - ярко-розовый цвет */
+.btn-problem-no-access {
+    border-color: #ff2288;
+    color: #ff2288;
+}
+
+.btn-problem-no-access:hover {
+    background: rgba(255, 34, 136, 0.25);
+    border-color: #ff1177;
+}
+
+.btn-problem-no-access.active {
+    background: rgba(255, 34, 136, 0.35);
+    border-color: #ff0066;
+    color: #ff0066;
+}
+
+/* Кнопка "Разбито зеркало для Дуги" - ярко-желтый цвет */
+.btn-problem-mirror-arc {
+    border-color: #ffdd00;
+    color: #b8860b; /* Темно-золотой цвет для лучшей читаемости */
+}
+
+.btn-problem-mirror-arc:hover {
+    background: rgba(255, 221, 0, 0.25);
+    border-color: #ffcc00;
+    color: #996f00; /* Еще темнее при наведении */
+}
+
+.btn-problem-mirror-arc.active {
+    background: rgba(255, 221, 0, 0.35);
+    border-color: #ffbb00;
+    color: #8b5a00; /* Самый темный при активном состоянии */
+}
+
+/* Кнопка "Разбито зеркало для П" - ярко-бирюзовый цвет */
+.btn-problem-mirror-p {
+    border-color: #00ddff;
+    color: #00ddff;
+}
+
+.btn-problem-mirror-p:hover {
+    background: rgba(0, 221, 255, 0.25);
+    border-color: #00ccff;
+}
+
+.btn-problem-mirror-p.active {
+    background: rgba(0, 221, 255, 0.35);
+    border-color: #00bbff;
+    color: #00bbff;
+}
+
+/* Кнопка "Отсрочка по монтажу" - ярко-зеленый цвет */
+.btn-problem-install-delay {
+    border-color: #00ff88;
+    color: #006600; /* Темно-зеленый цвет для лучшей читаемости */
+}
+
+.btn-problem-install-delay:hover {
+    background: rgba(0, 255, 136, 0.25);
+    border-color: #00ff77;
+    color: #004d00; /* Еще темнее при наведении */
+}
+
+.btn-problem-install-delay.active {
+    background: rgba(0, 255, 136, 0.35);
+    border-color: #00ff66;
+    color: #003300; /* Самый темный при активном состоянии */
+}
+
 /* ===== ЦВЕТОВАЯ ПОДСВЕТКА СТРОК ТАБЛИЦЫ (максимально яркая) ===== */
 
 .table-row-problem-no-space {
@@ -4157,6 +4244,31 @@ body.login-page-body {
 .table-row-problem-no-call {
     background: rgba(34, 136, 255, 0.2) !important;
     border-left: 4px solid rgba(34, 136, 255, 0.8) !important;
+}
+
+.table-row-problem-incomplete {
+    background: rgba(255, 102, 0, 0.2) !important;
+    border-left: 4px solid rgba(255, 102, 0, 0.8) !important;
+}
+
+.table-row-problem-no-access {
+    background: rgba(255, 34, 136, 0.2) !important;
+    border-left: 4px solid rgba(255, 34, 136, 0.8) !important;
+}
+
+.table-row-problem-mirror-arc {
+    background: rgba(255, 221, 0, 0.2) !important;
+    border-left: 4px solid rgba(255, 221, 0, 0.8) !important;
+}
+
+.table-row-problem-mirror-p {
+    background: rgba(0, 221, 255, 0.2) !important;
+    border-left: 4px solid rgba(0, 221, 255, 0.8) !important;
+}
+
+.table-row-problem-install-delay {
+    background: rgba(0, 255, 136, 0.2) !important;
+    border-left: 4px solid rgba(0, 255, 136, 0.8) !important;
 }
 
 /* Светлая тема для кнопок проблем */
@@ -4218,6 +4330,75 @@ body.login-page-body {
     background: rgba(22, 163, 74, 0.1);
 }
 
+[data-theme="light"] .btn-problem-incomplete {
+    border-color: #ff6600;
+    color: #ff6600;
+}
+
+[data-theme="light"] .btn-problem-incomplete:hover {
+    background: rgba(255, 102, 0, 0.15);
+}
+
+[data-theme="light"] .btn-problem-incomplete.active {
+    background: rgba(255, 102, 0, 0.25);
+}
+
+[data-theme="light"] .btn-problem-no-access {
+    border-color: #ff2288;
+    color: #ff2288;
+}
+
+[data-theme="light"] .btn-problem-no-access:hover {
+    background: rgba(255, 34, 136, 0.15);
+}
+
+[data-theme="light"] .btn-problem-no-access.active {
+    background: rgba(255, 34, 136, 0.25);
+}
+
+[data-theme="light"] .btn-problem-mirror-arc {
+    border-color: #ffdd00;
+    color: #b8860b; /* Темно-золотой цвет для лучшей читаемости */
+}
+
+[data-theme="light"] .btn-problem-mirror-arc:hover {
+    background: rgba(255, 221, 0, 0.15);
+    color: #996f00; /* Еще темнее при наведении */
+}
+
+[data-theme="light"] .btn-problem-mirror-arc.active {
+    background: rgba(255, 221, 0, 0.25);
+    color: #8b5a00; /* Самый темный при активном состоянии */
+}
+
+[data-theme="light"] .btn-problem-mirror-p {
+    border-color: #00ddff;
+    color: #00ddff;
+}
+
+[data-theme="light"] .btn-problem-mirror-p:hover {
+    background: rgba(0, 221, 255, 0.15);
+}
+
+[data-theme="light"] .btn-problem-mirror-p.active {
+    background: rgba(0, 221, 255, 0.25);
+}
+
+[data-theme="light"] .btn-problem-install-delay {
+    border-color: #00ff88;
+    color: #006600; /* Темно-зеленый цвет для лучшей читаемости */
+}
+
+[data-theme="light"] .btn-problem-install-delay:hover {
+    background: rgba(0, 255, 136, 0.15);
+    color: #004d00; /* Еще темнее при наведении */
+}
+
+[data-theme="light"] .btn-problem-install-delay.active {
+    background: rgba(0, 255, 136, 0.25);
+    color: #003300; /* Самый темный при активном состоянии */
+}
+
 /* Светлая тема для подсветки строк (максимально яркая) */
 [data-theme="light"] .table-row-problem-no-space {
     background: rgba(255, 17, 17, 0.15) !important;
@@ -4232,4 +4413,29 @@ body.login-page-body {
 [data-theme="light"] .table-row-problem-no-call {
     background: rgba(34, 136, 255, 0.15) !important;
     border-left: 4px solid rgba(34, 136, 255, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-incomplete {
+    background: rgba(255, 102, 0, 0.15) !important;
+    border-left: 4px solid rgba(255, 102, 0, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-no-access {
+    background: rgba(255, 34, 136, 0.15) !important;
+    border-left: 4px solid rgba(255, 34, 136, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-mirror-arc {
+    background: rgba(255, 221, 0, 0.15) !important;
+    border-left: 4px solid rgba(255, 221, 0, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-mirror-p {
+    background: rgba(0, 221, 255, 0.15) !important;
+    border-left: 4px solid rgba(0, 221, 255, 0.6) !important;
+}
+
+[data-theme="light"] .table-row-problem-install-delay {
+    background: rgba(0, 255, 136, 0.15) !important;
+    border-left: 4px solid rgba(0, 255, 136, 0.6) !important;
 }

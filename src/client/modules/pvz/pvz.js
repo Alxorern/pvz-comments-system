@@ -2400,6 +2400,16 @@ class PvzModule {
         return 'table-row-problem-no-furniture';
       case 'Не дозвонились':
         return 'table-row-problem-no-call';
+      case 'Некомплект':
+        return 'table-row-problem-incomplete';
+      case 'Не пустили в ОПС':
+        return 'table-row-problem-no-access';
+      case 'Разбито зеркало для Дуги':
+        return 'table-row-problem-mirror-arc';
+      case 'Разбито зеркало для П':
+        return 'table-row-problem-mirror-p';
+      case 'Отсрочка по монтажу':
+        return 'table-row-problem-install-delay';
       default:
         return '';
     }
@@ -2431,6 +2441,26 @@ class PvzModule {
       case 'Не дозвонились':
         icon = '📞';
         color = '#2288ff';
+        break;
+      case 'Некомплект':
+        icon = '📦';
+        color = '#ff6600';
+        break;
+      case 'Не пустили в ОПС':
+        icon = '🚫';
+        color = '#ff2288';
+        break;
+      case 'Разбито зеркало для Дуги':
+        icon = '🪞';
+        color = '#b8860b'; /* Темно-золотой цвет для лучшей читаемости */
+        break;
+      case 'Разбито зеркало для П':
+        icon = '🪞';
+        color = '#00ddff';
+        break;
+      case 'Отсрочка по монтажу':
+        icon = '⏰';
+        color = '#006600'; /* Темно-зеленый цвет для лучшей читаемости */
         break;
       default:
         icon = '❓';
