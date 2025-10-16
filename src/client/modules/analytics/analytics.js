@@ -98,6 +98,54 @@ class AnalyticsModule {
         this.logout();
       });
     }
+
+    // Обработчик изменения размера окна для перерисовки графиков
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      // Дебаунсинг - перерисовываем графики только после окончания изменения размера
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        this.resizeCharts();
+      }, 250);
+    });
+
+    // Обработчик изменения масштаба браузера
+    let zoomTimeout;
+    let lastDevicePixelRatio = window.devicePixelRatio;
+    
+    const handleZoomChange = () => {
+      clearTimeout(zoomTimeout);
+      zoomTimeout = setTimeout(() => {
+        // Проверяем изменение devicePixelRatio (указывает на изменение масштаба)
+        const currentDevicePixelRatio = window.devicePixelRatio;
+        if (Math.abs(currentDevicePixelRatio - lastDevicePixelRatio) > 0.1) {
+          console.log('🔍 Обнаружено изменение масштаба браузера');
+          lastDevicePixelRatio = currentDevicePixelRatio;
+          this.resizeCharts();
+        } else {
+          this.resizeCharts();
+        }
+      }, 500);
+    };
+
+    // Отслеживаем изменения масштаба через изменение размеров viewport
+    window.addEventListener('resize', handleZoomChange);
+    
+    // Дополнительная проверка при изменении фокуса окна (может указывать на изменение масштаба)
+    window.addEventListener('focus', () => {
+      setTimeout(() => {
+        this.resizeCharts();
+      }, 100);
+    });
+
+    // Отслеживаем изменения devicePixelRatio
+    const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    mediaQuery.addEventListener('change', () => {
+      console.log('🔍 Изменение devicePixelRatio обнаружено');
+      setTimeout(() => {
+        this.resizeCharts();
+      }, 200);
+    });
   }
 
   /**
@@ -355,6 +403,9 @@ class AnalyticsModule {
       this.charts.status.destroy();
     }
 
+    // Принудительно обновляем размеры canvas
+    this.resetCanvasSize(ctx);
+
     // Подсчитываем статусы
     const statusCounts = {};
     data.forEach(pvz => {
@@ -383,13 +434,10 @@ class AnalyticsModule {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 0,
         plugins: {
           legend: {
-            position: 'bottom',
-            labels: {
-              padding: 20,
-              usePointStyle: true
-            }
+            display: false
           },
           tooltip: {
             callbacks: {
@@ -418,6 +466,9 @@ class AnalyticsModule {
     if (this.charts.problems) {
       this.charts.problems.destroy();
     }
+
+    // Принудительно обновляем размеры canvas
+    this.resetCanvasSize(ctx);
 
     // Подсчитываем проблемы
     const problemCounts = {};
@@ -459,6 +510,7 @@ class AnalyticsModule {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 0,
         plugins: {
           legend: {
             display: false
@@ -489,6 +541,9 @@ class AnalyticsModule {
     if (this.charts.regions) {
       this.charts.regions.destroy();
     }
+
+    // Принудительно обновляем размеры canvas
+    this.resetCanvasSize(ctx);
 
     // Подсчитываем регионы
     const regionCounts = {};
@@ -521,6 +576,7 @@ class AnalyticsModule {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 0,
         indexAxis: 'y',
         plugins: {
           legend: {
@@ -552,6 +608,9 @@ class AnalyticsModule {
     if (this.charts.companies) {
       this.charts.companies.destroy();
     }
+
+    // Принудительно обновляем размеры canvas
+    this.resetCanvasSize(ctx);
 
     // Подсчитываем компании
     const companyCounts = {};
@@ -587,13 +646,10 @@ class AnalyticsModule {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        resizeDelay: 0,
         plugins: {
           legend: {
-            position: 'bottom',
-            labels: {
-              padding: 15,
-              usePointStyle: true
-            }
+            display: false
           }
         }
       }
@@ -712,10 +768,10 @@ class AnalyticsModule {
   async logout() {
     try {
       await window.secureApiClient.post('/api/auth/logout');
-      window.location.href = '/login';
+      window.location.href = '/';
     } catch (error) {
       console.error('❌ Ошибка выхода:', error);
-      window.location.href = '/login';
+      window.location.href = '/';
     }
   }
 
@@ -760,6 +816,52 @@ class AnalyticsModule {
         </div>
       `;
     }).join('');
+  }
+
+  /**
+   * Сброс размеров canvas
+   */
+  resetCanvasSize(canvas) {
+    if (!canvas) return;
+    
+    // Получаем размеры контейнера
+    const container = canvas.parentElement;
+    if (!container) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+    
+    // Сбрасываем все стили canvas
+    canvas.style.width = '';
+    canvas.style.height = '';
+    canvas.style.maxWidth = '';
+    canvas.style.maxHeight = '';
+    
+    // Устанавливаем размеры canvas
+    canvas.width = containerWidth * window.devicePixelRatio;
+    canvas.height = containerHeight * window.devicePixelRatio;
+    canvas.style.width = containerWidth + 'px';
+    canvas.style.height = containerHeight + 'px';
+    
+    // Получаем контекст и устанавливаем масштаб
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+  }
+
+  /**
+   * Перерисовка графиков при изменении размера окна
+   */
+  resizeCharts() {
+    console.log('🔄 Перерисовка графиков из-за изменения размера окна');
+    
+    // Получаем текущие данные для пересоздания графиков
+    const filteredData = this.getFilteredData();
+    
+    // Пересоздаем все графики с текущими данными
+    this.renderCharts(filteredData);
   }
 }
 

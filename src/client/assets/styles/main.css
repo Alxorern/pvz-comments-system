@@ -4577,6 +4577,17 @@ body.login-page-body {
     flex: 2;
     height: 300px;
     position: relative;
+    overflow: hidden;
+}
+
+.chart-content canvas {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
 }
 
 .chart-legend {

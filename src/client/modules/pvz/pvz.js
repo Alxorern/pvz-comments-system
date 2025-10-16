@@ -70,7 +70,7 @@ class PvzModule {
       
       // Проверяем авторизацию
       if (!window.authModule || !window.authModule.isAuthenticated()) {
-        window.location.href = '/login';
+        window.location.href = '/';
         return;
       }
 
