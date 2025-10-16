@@ -2710,29 +2710,80 @@ tr.highlight td {
 }
 
 .pvz-table {
-  width: 100%;
+  width: auto; /* Автоматическая ширина вместо 100% */
   min-width: 1200px; /* Минимальная ширина для горизонтального скролла */
   border-collapse: collapse;
   font-size: var(--font-size-sm);
   table-layout: fixed; /* Фиксированная раскладка для контроля ширины */
+  flex-shrink: 0; /* Предотвращаем сжатие таблицы */
 }
 
-/* Ширина столбцов через CSS переменные */
-.pvz-table th:nth-child(1), .pvz-table td:nth-child(1) { width: var(--col-0-width, 80px); }
-.pvz-table th:nth-child(2), .pvz-table td:nth-child(2) { width: var(--col-1-width, 120px); }
-.pvz-table th:nth-child(3), .pvz-table td:nth-child(3) { width: var(--col-2-width, 200px); }
-.pvz-table th:nth-child(4), .pvz-table td:nth-child(4) { width: var(--col-3-width, 100px); }
-.pvz-table th:nth-child(5), .pvz-table td:nth-child(5) { width: var(--col-4-width, 100px); }
-.pvz-table th:nth-child(6), .pvz-table td:nth-child(6) { width: var(--col-5-width, 120px); }
-.pvz-table th:nth-child(7), .pvz-table td:nth-child(7) { width: var(--col-6-width, 100px); }
-.pvz-table th:nth-child(8), .pvz-table td:nth-child(8) { width: var(--col-7-width, 100px); }
-.pvz-table th:nth-child(9), .pvz-table td:nth-child(9) { width: var(--col-8-width, 100px); }
-.pvz-table th:nth-child(10), .pvz-table td:nth-child(10) { width: var(--col-9-width, 100px); }
-.pvz-table th:nth-child(11), .pvz-table td:nth-child(11) { width: var(--col-10-width, 80px); }
-.pvz-table th:nth-child(12), .pvz-table td:nth-child(12) { width: var(--col-11-width, 80px); }
-.pvz-table th:nth-child(13), .pvz-table td:nth-child(13) { width: var(--col-12-width, 200px); }
-.pvz-table th:nth-child(14), .pvz-table td:nth-child(14) { width: var(--col-13-width, 100px); }
-.pvz-table th:nth-child(15), .pvz-table td:nth-child(15) { width: var(--col-14-width, 100px); }
+/* Ширина столбцов через CSS переменные с фиксированными минимальными размерами */
+.pvz-table th:nth-child(1), .pvz-table td:nth-child(1) { 
+  width: var(--col-0-width, 90px); 
+  min-width: 90px; 
+}
+.pvz-table th:nth-child(2), .pvz-table td:nth-child(2) { 
+  width: var(--col-1-width, 120px); 
+  min-width: 120px; 
+}
+.pvz-table th:nth-child(3), .pvz-table td:nth-child(3) { 
+  width: var(--col-2-width, 200px); 
+  min-width: 200px; 
+}
+.pvz-table th:nth-child(4), .pvz-table td:nth-child(4) { 
+  width: var(--col-3-width, 100px); 
+  min-width: 100px; 
+}
+.pvz-table th:nth-child(5), .pvz-table td:nth-child(5) { 
+  width: var(--col-4-width, 100px); 
+  min-width: 100px; 
+}
+.pvz-table th:nth-child(6), .pvz-table td:nth-child(6) { 
+  width: var(--col-5-width, 120px); 
+  min-width: 120px; 
+}
+.pvz-table th:nth-child(7), .pvz-table td:nth-child(7) { 
+  width: var(--col-6-width, 100px); 
+  min-width: 100px; 
+}
+.pvz-table th:nth-child(8), .pvz-table td:nth-child(8) { 
+  width: var(--col-7-width, 100px); 
+  min-width: 100px; 
+}
+.pvz-table th:nth-child(9), .pvz-table td:nth-child(9) { 
+  width: var(--col-8-width, 100px); 
+  min-width: 100px; 
+}
+.pvz-table th:nth-child(10), .pvz-table td:nth-child(10) { 
+  width: var(--col-9-width, 100px); 
+  min-width: 100px; 
+}
+.pvz-table th:nth-child(11), .pvz-table td:nth-child(11) { 
+  width: 150px !important; /* Принудительная ширина */
+  min-width: 150px !important;
+  max-width: 150px !important; /* Предотвращаем сжатие */
+}
+.pvz-table th:nth-child(12), .pvz-table td:nth-child(12) { 
+  width: var(--col-11-width, 80px); 
+  min-width: 80px; 
+}
+.pvz-table th:nth-child(13), .pvz-table td:nth-child(13) { 
+  width: var(--col-12-width, 200px); 
+  min-width: 200px; 
+}
+.pvz-table th:nth-child(14), .pvz-table td:nth-child(14) { 
+  width: var(--col-13-width, 120px); 
+  min-width: 120px; 
+}
+.pvz-table th:nth-child(15), .pvz-table td:nth-child(15) { 
+  width: 90px !important; /* Минимальная ширина */
+  min-width: 90px !important;
+  max-width: 90px !important; /* Предотвращаем растягивание */
+  white-space: nowrap !important; /* Предотвращаем перенос даты */
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
 
 .pvz-table th,
 .pvz-table td {
@@ -2743,6 +2794,7 @@ tr.highlight td {
   word-wrap: break-word;
   word-break: break-word;
   hyphens: auto;
+  box-sizing: border-box; /* Учитываем padding в размерах */
 }
 
 .pvz-table th {
@@ -2754,8 +2806,8 @@ tr.highlight td {
   z-index: 10;
   user-select: none;
   height: auto !important;
-  min-height: 2.8em; /* Две строки */
-  max-height: 2.8em !important;
+  min-height: 4.2em; /* Три строки (1.4 * 3) */
+  max-height: 4.2em !important;
   overflow: hidden !important;
   line-height: 1.4;
   white-space: normal;
@@ -2786,7 +2838,7 @@ tr.highlight td {
   text-overflow: ellipsis;
   white-space: normal;
   line-height: 1.2;
-  max-height: 2.4em; /* Две строки */
+  max-height: 3.6em; /* Три строки (1.2 * 3) */
 }
 
 .pvz-table th .sort-indicator {
@@ -2836,7 +2888,7 @@ tr.highlight td {
   max-height: calc(1.4em * 3) !important; /* Максимум 3 строки */
   overflow: hidden !important;
   line-height: 1.4;
-  white-space: pre-line; /* Поддержка переносов строк */
+  white-space: normal; /* Убираем поддержку переносов строк */
   word-break: break-word;
   hyphens: auto;
   box-sizing: border-box;

@@ -1358,8 +1358,11 @@ class PvzModule {
    */
   formatCellContent(text) {
     // Преобразуем в строку и обрабатываем null/undefined
-    const textStr = String(text || '');
+    let textStr = String(text || '');
     if (!textStr) return '';
+    
+    // Убираем все переносы строк из исходных данных
+    textStr = textStr.replace(/\n/g, ' ').replace(/\r/g, ' ');
     
     // Если текст длиннее 75 символов, обрезаем до 3 строк
     if (textStr.length > 75) {
@@ -1437,7 +1440,7 @@ class PvzModule {
       lines.push(currentLine);
     }
     
-    return lines.join('\n');
+    return lines.join(' '); // Убираем переносы строк, используем пробелы
   }
 
   /**
@@ -1490,7 +1493,7 @@ class PvzModule {
       lines.push(currentLine);
     }
     
-    return lines.join('\n');
+    return lines.join(' '); // Убираем переносы строк, используем пробелы
   }
 
   /**
@@ -1520,18 +1523,70 @@ class PvzModule {
 
       // Определяем оптимальную ширину в зависимости от типа столбца
       let optimalWidth;
-      if (['pvz_id', 'phone', 'postal_code'].includes(column)) {
-        optimalWidth = '80px'; // Короткие поля
+      if (['pvz_id'].includes(column)) {
+        optimalWidth = '90px'; // Внешний ID ПВЗ
+      } else if (['phone'].includes(column)) {
+        optimalWidth = '150px'; // Телефон
+      } else if (['postal_code'].includes(column)) {
+        optimalWidth = '80px'; // Индекс
       } else if (['region', 'status_name', 'company_name'].includes(column)) {
         optimalWidth = '120px'; // Средние поля
       } else if (['address', 'last_comment'].includes(column)) {
         optimalWidth = '200px'; // Длинные поля
+      } else if (['comment_date'].includes(column)) {
+        optimalWidth = '90px'; // Последняя колонка - минимальная ширина
       } else {
         optimalWidth = '100px'; // Остальные поля
       }
 
       // Устанавливаем CSS переменную для ширины столбца
       this.elements.table.style.setProperty(`--col-${index}-width`, optimalWidth);
+      
+      // Принудительно устанавливаем ширину для столбца phone
+      if (column === 'phone') {
+        const header = this.elements.tableHead.querySelector(`th[data-column="${column}"]`);
+        if (header) {
+          header.style.width = '150px';
+          header.style.minWidth = '150px';
+          header.style.maxWidth = '150px';
+          console.log(`🔧 Принудительно установили ширину для заголовка phone: 150px`);
+        }
+        
+        // Также устанавливаем для всех ячеек в этом столбце
+        const cells = this.elements.tableBody.querySelectorAll(`td:nth-child(${index + 1})`);
+        cells.forEach(cell => {
+          cell.style.width = '150px';
+          cell.style.minWidth = '150px';
+          cell.style.maxWidth = '150px';
+        });
+        console.log(`🔧 Принудительно установили ширину для ${cells.length} ячеек phone: 150px`);
+      }
+      
+      // Принудительно устанавливаем ширину для последней колонки (comment_date)
+      if (column === 'comment_date') {
+        const header = this.elements.tableHead.querySelector(`th[data-column="${column}"]`);
+        if (header) {
+          header.style.width = '90px';
+          header.style.minWidth = '90px';
+          header.style.maxWidth = '90px';
+          console.log(`🔧 Принудительно установили ширину для заголовка comment_date: 90px`);
+        }
+        
+        // Также устанавливаем для всех ячеек в этом столбце
+        const cells = this.elements.tableBody.querySelectorAll(`td:nth-child(${index + 1})`);
+        cells.forEach(cell => {
+          cell.style.width = '90px';
+          cell.style.minWidth = '90px';
+          cell.style.maxWidth = '90px';
+        });
+        console.log(`🔧 Принудительно установили ширину для ${cells.length} ячеек comment_date: 90px`);
+      }
+      
+      // Отладочная информация для столбца phone
+      if (column === 'phone') {
+        console.log(`🔧 Устанавливаем ширину для столбца phone: ${optimalWidth}, индекс: ${index}`);
+        console.log(`🔧 CSS переменная: --col-${index}-width = ${optimalWidth}`);
+      }
     });
   }
 
@@ -1722,6 +1777,11 @@ class PvzModule {
         const width = this.tableSettings.columnWidths[column];
         if (width) {
           header.style.width = width;
+          
+          // Отладочная информация для столбца phone
+          if (column === 'phone') {
+            console.log(`🔧 Применяем сохраненную ширину для столбца phone: ${width}`);
+          }
         }
       });
     }
