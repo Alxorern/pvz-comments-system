@@ -116,7 +116,7 @@ function addMenuPermissions(req, res, next) {
     
     if (roleName === 'admin') {
       // Админ видит все пункты меню
-      menuItems = ['pvz', 'companies', 'users', 'roles', 'settings'];
+      menuItems = ['pvz', 'analytics', 'companies', 'users', 'roles', 'settings'];
     } else if (roleName === 'superuser') {
       // Superuser видит только список ПВЗ
       menuItems = ['pvz'];

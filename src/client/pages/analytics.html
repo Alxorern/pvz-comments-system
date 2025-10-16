@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Аналитика - ПВЗ Комментарии</title>
+    <link rel="stylesheet" href="/assets/styles/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="comment-icon">💬</div>
+                <div>ПВЗ Комментарии</div>
+                <button class="theme-toggle" id="themeToggle">
+                    <span class="theme-toggle-icon">🌙</span>
+                    <span class="theme-toggle-text">Темная тема</span>
+                </button>
+            </div>
+            <div class="nav">
+                <a href="/pvz" class="nav-item">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-text">Список ПВЗ</span>
+                </a>
+                <a href="/analytics" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Аналитика</span>
+                </a>
+                <a href="/companies" class="nav-item">
+                    <span class="nav-icon">🏢</span>
+                    <span class="nav-text">Компании</span>
+                </a>
+                <a href="/roles" class="nav-item">
+                    <span class="nav-icon">🔐</span>
+                    <span class="nav-text">Роли</span>
+                </a>
+                <a href="/users" class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Пользователи</span>
+                </a>
+                <a href="/settings" class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Настройки</span>
+                </a>
+            </div>
+            <div class="sidebar-bottom">
+                <button id="btnLogout" class="nav-item">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">Выход</span>
+                </button>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name">Загрузка...</span>
+                    <span class="user-role"></span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Основной контент -->
+        <div class="content">
+            <div class="page-header">
+                <h2>📊 Аналитика ПВЗ</h2>
+                <div class="page-actions">
+                    <button class="btn btn-primary" id="btnRefresh">
+                        <span>🔄</span> Обновить данные
+                    </button>
+                </div>
+            </div>
+
+            <!-- Фильтры аналитики -->
+            <div class="analytics-filters">
+                <div class="filter-group">
+                    <label for="dateFrom">От:</label>
+                    <input type="date" id="dateFrom" class="form-control">
+                </div>
+                <div class="filter-group">
+                    <label for="dateTo">До:</label>
+                    <input type="date" id="dateTo" class="form-control">
+                </div>
+                <div class="filter-group">
+                    <label for="regionFilter">Регион:</label>
+                    <select id="regionFilter" class="form-control">
+                        <option value="">Все регионы</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="companyFilter">Компания:</label>
+                    <select id="companyFilter" class="form-control">
+                        <option value="">Все компании</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" id="btnApplyFilters">Применить</button>
+            </div>
+
+            <!-- Карточки с основными метриками -->
+            <div class="metrics-cards">
+                <div class="metric-card">
+                    <div class="metric-icon">📦</div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="totalPvz">0</div>
+                        <div class="metric-label">Всего ПВЗ</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">⚠️</div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="problematicPvz">0</div>
+                        <div class="metric-label">С проблемами</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">✅</div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="problemFreePvz">0</div>
+                        <div class="metric-label">Без проблем</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon">📊</div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="problemPercentage">0%</div>
+                        <div class="metric-label">% проблемных</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Графики -->
+            <div class="charts-container">
+                <!-- График по статусам -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>📈 Заявки по статусам</h3>
+                        <div class="chart-actions">
+                            <button class="btn btn-sm btn-secondary" id="exportStatusChart">Экспорт</button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-content">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="statusLegend"></div>
+                    </div>
+                </div>
+
+                <!-- График по проблемам -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>⚠️ Проблемы по типам</h3>
+                        <div class="chart-actions">
+                            <button class="btn btn-sm btn-secondary" id="exportProblemsChart">Экспорт</button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-content">
+                            <canvas id="problemsChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="problemsLegend"></div>
+                    </div>
+                </div>
+
+                <!-- График по регионам -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>🗺️ Распределение по регионам</h3>
+                        <div class="chart-actions">
+                            <button class="btn btn-sm btn-secondary" id="exportRegionsChart">Экспорт</button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-content">
+                            <canvas id="regionsChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="regionsLegend"></div>
+                    </div>
+                </div>
+
+                <!-- График по компаниям -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>🏢 Распределение по компаниям</h3>
+                        <div class="chart-actions">
+                            <button class="btn btn-sm btn-secondary" id="exportCompaniesChart">Экспорт</button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-content">
+                            <canvas id="companiesChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="companiesLegend"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Таблицы с детальной информацией -->
+            <div class="tables-container">
+
+                <!-- Статистика по проблемам -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>📋 Детальная статистика по проблемам</h3>
+                    </div>
+                    <div class="table-content">
+                        <table class="analytics-table" id="problemsStatsTable">
+                            <thead>
+                                <tr>
+                                    <th>Тип проблемы</th>
+                                    <th>Количество</th>
+                                    <th>Процент</th>
+                                    <th>Цвет</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение модулей -->
+    <script src="/modules/shared/theme.js"></script>
+    <script src="/modules/shared/secureApi.js"></script>
+    <script src="/modules/shared/utils.js"></script>
+    <script src="/modules/shared/menu.js"></script>
+    <script src="/modules/analytics/analytics.js"></script>
+    
+    <script>
+        let pageInitialized = false;
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (pageInitialized) {
+                console.log('📊 Страница аналитики уже инициализирована');
+                return;
+            }
+            
+            console.log('📊 Инициализация страницы аналитики...');
+            
+            try {
+                // Проверяем аутентификацию
+                if (!window.secureApiClient || !window.secureApiClient.checkAuthAndRedirect()) {
+                    console.log('❌ Пользователь не аутентифицирован, перенаправляем на логин');
+                    return;
+                }
+                
+                // Инициализируем меню и пользователя
+                if (window.MenuManager) {
+                    await window.MenuManager.initForPage();
+                }
+                
+                // Инициализируем модуль аналитики
+                if (window.analyticsModule) {
+                    await window.analyticsModule.init();
+                }
+                
+                pageInitialized = true;
+                console.log('✅ Страница аналитики загружена для аутентифицированного пользователя');
+            } catch (error) {
+                console.error('❌ Ошибка инициализации страницы аналитики:', error);
+            }
+        });
+    </script>
+</body>
+</html>

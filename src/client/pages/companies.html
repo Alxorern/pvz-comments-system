@@ -23,6 +23,10 @@
                     <span class="nav-icon">📦</span>
                     <span class="nav-text">Список ПВЗ</span>
                 </a>
+                <a href="/analytics" class="nav-item" id="analyticsNavItem" style="display: none;">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Аналитика</span>
+                </a>
                 <a href="/companies" class="nav-item active">
                     <span class="nav-icon">🏢</span>
                     <span class="nav-text">Компании</span>
@@ -160,6 +164,14 @@
             // Инициализируем модуль управления компаниями
             if (window.companiesManager) {
                 await window.companiesManager.init();
+            }
+            
+            // Показываем/скрываем ссылку на аналитику в зависимости от роли
+            const analyticsNavItem = document.getElementById('analyticsNavItem');
+            if (analyticsNavItem && window.MenuManager && window.MenuManager.userMenuItems) {
+                if (window.MenuManager.userMenuItems.includes('analytics')) {
+                    analyticsNavItem.style.display = 'flex';
+                }
             }
             
             console.log('✅ Страница компаний загружена для аутентифицированного пользователя');

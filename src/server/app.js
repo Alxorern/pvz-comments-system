@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const database = require('./database/db');
 const { authenticatePage } = require('./middleware/auth');
-const { addMenuPermissions } = require('./middleware/roles');
+const { addMenuPermissions, requireAdmin } = require('./middleware/roles');
 const { sanitizeInput } = require('./middleware/validation');
 
 // Импортируем маршруты
@@ -29,9 +29,9 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -221,6 +221,20 @@ app.get('/pvz', authenticatePage, addMenuPermissions, (req, res) => {
       res.status(500).send('Ошибка загрузки страницы');
     } else {
       console.log('✅ Страница ПВЗ отправлена успешно');
+    }
+  });
+});
+
+app.get('/analytics', authenticatePage, requireAdmin, addMenuPermissions, (req, res) => {
+  const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
+  console.log('📄 Запрос на страницу аналитики (/analytics) для пользователя:', userInfo);
+  const filePath = path.join(__dirname, '../client/pages', 'analytics.html');
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('❌ Ошибка отправки страницы аналитики:', err);
+      res.status(500).send('Ошибка загрузки страницы');
+    } else {
+      console.log('✅ Страница аналитики отправлена успешно');
     }
   });
 });

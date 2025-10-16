@@ -4,6 +4,7 @@ class MenuManager {
         this.api = window.secureApiClient;
         this.menuItems = {
             'pvz': { url: '/pvz', text: 'Список ПВЗ', icon: '📦' },
+            'analytics': { url: '/analytics', text: 'Аналитика', icon: '📊' },
             'companies': { url: '/companies', text: 'Компании', icon: '🏢' },
             'users': { url: '/users', text: 'Пользователи', icon: '👥' },
             'roles': { url: '/roles', text: 'Роли', icon: '🔐' },
@@ -26,8 +27,14 @@ class MenuManager {
                 // Обновляем информацию о пользователе
                 this.updateUserInfo(user);
                 
-                // Показываем все пункты меню (пока нет системы ролей)
-                this.showAllMenuItems();
+                // Обновляем меню на основе доступных пунктов
+                if (response.menuItems && Array.isArray(response.menuItems)) {
+                    console.log('📋 Доступные пункты меню:', response.menuItems);
+                    this.updateMenu(response.menuItems);
+                } else {
+                    console.log('📋 Используем fallback - показываем все пункты меню');
+                    this.showAllMenuItems();
+                }
             } else {
                 console.warn('⚠️ Пользователь не аутентифицирован');
                 this.showAllMenuItems(); // Fallback - показываем все пункты
@@ -40,6 +47,8 @@ class MenuManager {
     }
 
     updateMenu(availableItems) {
+        console.log('🔄 Обновление меню с пунктами:', availableItems);
+        
         // Находим контейнеры навигации
         const navContainers = document.querySelectorAll('.sidebar-nav, .nav');
         
@@ -57,8 +66,10 @@ class MenuManager {
                 
                 if (isAvailable) {
                     menuItem.style.display = '';
+                    console.log('✅ Показываем пункт меню:', href);
                 } else {
                     menuItem.style.display = 'none';
+                    console.log('❌ Скрываем пункт меню:', href);
                 }
             });
         });
