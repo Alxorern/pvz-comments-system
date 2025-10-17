@@ -1,12 +1,45 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const dbConfig = require('./database-config');
+const fs = require('fs');
 
-// Используем правильный путь к базе данных
-const dbPath = dbConfig.getDatabasePath();
+// Определяем путь к базе данных в зависимости от окружения
+let dbPath;
+if (process.env.RAILWAY_ENVIRONMENT === 'production') {
+    // В Railway используем Volume
+    dbPath = '/app/data/billing.db';
+    console.log('🚀 Railway production environment detected');
+} else if (process.env.DATABASE_PATH) {
+    // Используем переменную окружения
+    dbPath = process.env.DATABASE_PATH;
+    console.log('🔧 Using DATABASE_PATH environment variable');
+} else {
+    // Локальная разработка
+    try {
+        const dbConfig = require('./database-config');
+        dbPath = dbConfig.getDatabasePath();
+        console.log('💻 Local development environment');
+    } catch (error) {
+        dbPath = path.join(__dirname, 'billing.db');
+        console.log('💻 Fallback to default path');
+    }
+}
+
+console.log(`🗄️ Database path: ${dbPath}`);
 
 async function initDatabase() {
     return new Promise((resolve, reject) => {
+        // Создаем директорию если она не существует
+        const dbDir = path.dirname(dbPath);
+        console.log(`📁 Database directory: ${dbDir}`);
+        console.log(`📁 Directory exists: ${fs.existsSync(dbDir)}`);
+        
+        if (!fs.existsSync(dbDir)) {
+            console.log(`❌ Directory does not exist: ${dbDir}`);
+            console.log(`❌ NOT creating directory - this might be a Volume issue!`);
+            reject(new Error(`Database directory does not exist: ${dbDir}`));
+            return;
+        }
+        
         const db = new sqlite3.Database(dbPath, (err) => {
             if (err) {
                 console.error('❌ Ошибка подключения к БД:', err);
