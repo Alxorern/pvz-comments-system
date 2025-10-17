@@ -38,14 +38,29 @@ module.exports = {
                     }
                     console.log('✅ Компания по умолчанию создана');
                     
-                    // Добавляем company_id в таблицу pvz если его нет
-                    console.log('🔄 Проверяем структуру таблицы pvz...');
-                    db.all("PRAGMA table_info(pvz)", (err, columns) => {
+                    // Проверяем, существует ли таблица pvz
+                    console.log('🔄 Проверяем существование таблицы pvz...');
+                    db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='pvz'", (err, tables) => {
                         if (err) {
-                            console.error('❌ Ошибка проверки структуры pvz:', err);
+                            console.error('❌ Ошибка проверки таблицы pvz:', err);
                             reject(err);
                             return;
                         }
+                        
+                        if (tables.length === 0) {
+                            console.log('⚠️ Таблица pvz не существует, пропускаем добавление company_id');
+                            resolve();
+                            return;
+                        }
+                        
+                        // Добавляем company_id в таблицу pvz если его нет
+                        console.log('🔄 Проверяем структуру таблицы pvz...');
+                        db.all("PRAGMA table_info(pvz)", (err, columns) => {
+                            if (err) {
+                                console.error('❌ Ошибка проверки структуры pvz:', err);
+                                reject(err);
+                                return;
+                            }
                         
                         const hasCompanyId = columns.some(col => col.name === 'company_id');
                         
@@ -78,6 +93,7 @@ module.exports = {
                             console.log('✅ company_id уже существует в pvz');
                             resolve();
                         }
+                        });
                     });
                 });
             });
