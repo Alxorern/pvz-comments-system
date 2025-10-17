@@ -39,8 +39,12 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
         GROUP BY r.id, r.name, r.is_active, r.created_at
         ORDER BY r.name
       `, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
+        if (err) {
+          console.error('❌ Ошибка SQL запроса ролей:', err);
+          reject(err);
+        } else {
+          resolve(rows);
+        }
       });
     });
 
@@ -78,6 +82,7 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ success: true, data: rolesWithRegionsAndStatuses });
   } catch (error) {
     console.error('❌ Ошибка получения ролей:', error);
+    console.error('❌ Стек ошибки:', error.stack);
     res.status(500).json({ 
       error: 'Ошибка получения ролей',
       details: error.message 

@@ -197,18 +197,11 @@ async function getUserStatuses(userId) {
  */
 async function addUserRegions(req, res, next) {
   try {
-    console.log('🔍 addUserRegions - пользователь:', req.user?.id, 'роль:', req.user?.roleName);
-    console.log('🔍 addUserRegions - полный req.user:', req.user);
-    
     if (req.user && req.user.roleName && req.user.roleName !== 'admin') {
       req.userRegions = await getUserRegions(req.user.id);
-      console.log('📊 Регионы пользователя:', req.userRegions);
     } else if (req.user && req.user.roleName === 'admin') {
       // Администратор видит все регионы
       req.userRegions = null; // null означает "все регионы"
-      console.log('👑 Админ - все регионы');
-    } else {
-      console.log('⚠️ addUserRegions - пользователь не обработан, req.userRegions остается undefined');
     }
     next();
   } catch (error) {
@@ -222,14 +215,11 @@ async function addUserRegions(req, res, next) {
  */
 async function addUserStatuses(req, res, next) {
   try {
-    console.log('🔍 addUserStatuses - пользователь:', req.user?.id, 'роль:', req.user?.roleName);
     if (req.user && req.user.roleName && req.user.roleName !== 'admin') {
       req.userStatuses = await getUserStatuses(req.user.id);
-      console.log('📊 Статусы пользователя:', req.userStatuses);
     } else if (req.user && req.user.roleName === 'admin') {
       // Администратор видит все статусы
       req.userStatuses = null; // null означает "все статусы"
-      console.log('👑 Админ - все статусы');
     }
     next();
   } catch (error) {
