@@ -1,7 +1,9 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const dbConfig = require('./database-config');
 
-const dbPath = '/app/data/billing.db';
+// Используем правильный путь к базе данных
+const dbPath = dbConfig.getDatabasePath();
 
 async function initDatabase() {
     return new Promise((resolve, reject) => {
@@ -101,6 +103,13 @@ async function createTables(db) {
                 PRIMARY KEY (role_id, region_id),
                 FOREIGN KEY (role_id) REFERENCES roles (id),
                 FOREIGN KEY (region_id) REFERENCES regions (id)
+            );
+            
+            CREATE TABLE IF NOT EXISTS role_statuses (
+                role_id INTEGER,
+                status_name TEXT,
+                PRIMARY KEY (role_id, status_name),
+                FOREIGN KEY (role_id) REFERENCES roles (id)
             );
             
             CREATE TABLE IF NOT EXISTS user_table_settings (

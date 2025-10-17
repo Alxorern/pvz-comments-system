@@ -276,6 +276,11 @@ class PvzModule {
         this.handleRegionSearch(e.target.value);
       });
       
+      // Показываем все доступные регионы при фокусе
+      this.elements.regionSearchInput.addEventListener('focus', () => {
+        this.handleRegionSearch(''); // Показываем все регионы
+      });
+      
       // Закрытие списка предложений при потере фокуса
       this.elements.regionSearchInput.addEventListener('blur', () => {
         setTimeout(() => {
@@ -693,6 +698,11 @@ class PvzModule {
         this.data = response.data.items || []; // Для совместимости
         this.totalItems = response.data.total || 0;
         
+        // Извлекаем регионы из данных, если они еще не загружены
+        if (this.regions.length === 0) {
+          this.extractRegionsFromData();
+        }
+        
         // Проверяем уникальность PVZID на клиенте
         const pvzIds = this.allData.map(item => item.pvz_id);
         const uniquePvzIds = [...new Set(pvzIds)];
@@ -752,15 +762,37 @@ class PvzModule {
   async loadRegions() {
     try {
       console.log('🔄 Загрузка регионов...');
+      
+      // Сначала пытаемся загрузить из API
       const response = await window.secureApiClient.get('/api/data/regions');
-      if (response.success) {
+      console.log('📡 Полный ответ API /api/data/regions:', response);
+      
+      if (response.success && response.data && response.data.length > 0) {
         this.regions = response.data || [];
-        console.log(`✅ Загружено ${this.regions.length} регионов:`, this.regions.slice(0, 5));
+        console.log(`✅ Загружено ${this.regions.length} регионов из API:`, this.regions.slice(0, 5));
       } else {
-        console.error('❌ Ошибка ответа сервера:', response);
+        console.log('⚠️ API не вернул регионы, извлекаем из данных ПВЗ');
+        // Если API не вернул регионы, извлекаем их из уже загруженных данных
+        this.extractRegionsFromData();
       }
     } catch (error) {
-      console.error('❌ Ошибка загрузки регионов:', error);
+      console.error('❌ Ошибка загрузки регионов из API:', error);
+      console.log('🔄 Извлекаем регионы из данных ПВЗ...');
+      this.extractRegionsFromData();
+    }
+  }
+
+  /**
+   * Извлечение регионов из загруженных данных ПВЗ
+   */
+  extractRegionsFromData() {
+    if (this.allData && this.allData.length > 0) {
+      const uniqueRegions = [...new Set(this.allData.map(item => item.region).filter(Boolean))];
+      this.regions = uniqueRegions.sort();
+      console.log(`✅ Извлечено ${this.regions.length} регионов из данных ПВЗ:`, this.regions.slice(0, 5));
+    } else {
+      console.log('⚠️ Данные ПВЗ еще не загружены, регионы будут извлечены позже');
+      this.regions = [];
     }
   }
 
@@ -768,15 +800,21 @@ class PvzModule {
    * Обработка поиска регионов
    */
   handleRegionSearch(query) {
-    if (!query || query.length < 2) {
-      this.updateRegionSuggestions([]);
+    console.log('🔍 handleRegionSearch вызван с запросом:', query);
+    console.log('📊 Доступные регионы:', this.regions);
+    
+    // Для обычных пользователей показываем все доступные регионы при пустом запросе
+    if (!query || query.trim() === '') {
+      console.log('📋 Показываем все регионы (пустой запрос)');
+      this.updateRegionSuggestions(this.regions);
       return;
     }
 
     const filteredRegions = this.regions.filter(region => 
       region.toLowerCase().includes(query.toLowerCase())
     );
-
+    
+    console.log('🔍 Отфильтрованные регионы:', filteredRegions);
     this.updateRegionSuggestions(filteredRegions);
   }
 
@@ -805,17 +843,25 @@ class PvzModule {
    * Обновление списка предложений регионов
    */
   updateRegionSuggestions(regions) {
-    if (!this.elements.regionSuggestions) return;
+    console.log('🔄 updateRegionSuggestions вызван с регионами:', regions);
+    console.log('🔍 Элемент regionSuggestions:', this.elements.regionSuggestions);
+    
+    if (!this.elements.regionSuggestions) {
+      console.log('❌ Элемент regionSuggestions не найден');
+      return;
+    }
 
     this.elements.regionSuggestions.innerHTML = '';
     this.currentSuggestions = regions;
     this.selectedSuggestionIndex = -1;
 
     if (regions.length === 0) {
+      console.log('📭 Регионов нет, скрываем список');
       this.elements.regionSuggestions.classList.remove('show');
       return;
     }
 
+    console.log(`📋 Создаем ${regions.length} элементов предложений`);
     regions.forEach((region, index) => {
       const suggestion = document.createElement('div');
       suggestion.className = 'suggestion-item';
@@ -831,7 +877,9 @@ class PvzModule {
       this.elements.regionSuggestions.appendChild(suggestion);
     });
 
+    console.log('✅ Добавляем класс show к списку предложений');
     this.elements.regionSuggestions.classList.add('show');
+    console.log('🔍 Классы элемента после добавления show:', this.elements.regionSuggestions.className);
   }
 
   /**

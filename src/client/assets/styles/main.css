@@ -3477,7 +3477,8 @@ tr.highlight td {
 }
 
 /* Специальные стили для модального окна ролей */
-.overlay .regions-input-group {
+.overlay .regions-input-group,
+.overlay .statuses-input-group {
   display: flex;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-md);
@@ -3485,12 +3486,14 @@ tr.highlight td {
   flex-wrap: wrap;
 }
 
-.overlay .regions-input-group input {
+.overlay .regions-input-group input,
+.overlay .statuses-input-group input {
   flex: 1;
   min-width: 200px;
 }
 
-.overlay .regions-input-group .btn {
+.overlay .regions-input-group .btn,
+.overlay .statuses-input-group .btn {
   flex-shrink: 0;
 }
 
@@ -3586,7 +3589,7 @@ tr.highlight td {
   box-shadow: var(--shadow-primary);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1001;
   display: none;
   width: 100%;
 }

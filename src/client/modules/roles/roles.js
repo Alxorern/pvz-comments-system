@@ -5,10 +5,12 @@ class RolesModule {
   constructor() {
     this.cache = {
       roles: [],
-      regions: []
+      regions: [],
+      statuses: []
     };
     this.editingRoleId = null;
     this.selectedRegions = [];
+    this.selectedStatuses = [];
   }
 
   /**
@@ -78,6 +80,18 @@ class RolesModule {
         console.log('✅ Загружено регионов:', regionsResponse.data ? regionsResponse.data.length : 0);
       } else {
         console.error('❌ Ошибка загрузки регионов:', regionsResponse);
+      }
+
+      // Загружаем статусы
+      console.log('📥 Загружаем статусы...');
+      const statusesResponse = await window.secureApiClient.get('/api/roles/statuses');
+      console.log('📥 Ответ API статусов:', statusesResponse);
+      
+      if (statusesResponse && statusesResponse.success) {
+        this.cache.statuses = statusesResponse.data || [];
+        console.log('✅ Загружено статусов:', statusesResponse.data ? statusesResponse.data.length : 0);
+      } else {
+        console.error('❌ Ошибка загрузки статусов:', statusesResponse);
       }
     } catch (error) {
       console.error('❌ Ошибка загрузки данных ролей:', error);
@@ -169,6 +183,50 @@ class RolesModule {
       addRegionBtn.addEventListener('click', () => this.addSelectedRegion());
     }
 
+    // Поиск статусов
+    const statusSearchInput = document.getElementById('statusSearchInput');
+    const addStatusBtn = document.getElementById('addStatusBtn');
+
+    if (statusSearchInput) {
+      // При клике на поле показываем все доступные статусы
+      statusSearchInput.addEventListener('focus', () => {
+        this.handleStatusSearch(''); // Показываем все статусы
+      });
+      
+      statusSearchInput.addEventListener('input', (e) => {
+        const query = e.target.value;
+        this.handleStatusSearch(query);
+        
+        // Если пользователь вводит текст, который точно совпадает с одним из статусов,
+        // автоматически выделяем его
+        if (this.cache.statuses && this.cache.statuses.includes(query)) {
+          // Можно добавить визуальное выделение, но пока оставим как есть
+        }
+      });
+      
+      // Закрытие списка предложений при потере фокуса
+      statusSearchInput.addEventListener('blur', () => {
+        // Небольшая задержка, чтобы клик по предложению успел сработать
+        setTimeout(() => {
+          this.updateStatusSuggestions([]);
+        }, 150);
+      });
+      
+      // Поддержка клавиатуры
+      statusSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.updateStatusSuggestions([]);
+          statusSearchInput.blur();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          this.addSelectedStatus();
+        }
+      });
+    }
+    if (addStatusBtn) {
+      addStatusBtn.addEventListener('click', () => this.addSelectedStatus());
+    }
+
     // Кнопка выхода настраивается в модуле навигации
 
     // Переключатель темы
@@ -187,11 +245,21 @@ class RolesModule {
    */
   showAddRoleModal() {
     console.log('📝 Показываем модальное окно добавления роли');
+    
+    // Если статусы не загружены, загружаем их
+    if (!this.cache.statuses || this.cache.statuses.length === 0) {
+      console.log('⚠️ Статусы не загружены, загружаем...');
+      this.loadData();
+    }
+    
     this.editingRoleId = null;
     this.selectedRegions = [];
+    this.selectedStatuses = [];
     this.clearRoleForm();
     this.updateRegionSuggestions([]);
+    this.updateStatusSuggestions([]);
     this.updateSelectedRegionsDisplay();
+    this.updateSelectedStatusesDisplay();
     
     const modal = document.getElementById('roleModal');
     const title = document.getElementById('roleModalTitle');
@@ -220,9 +288,12 @@ class RolesModule {
     console.log('✅ Роль найдена:', role);
     this.editingRoleId = roleId;
     this.selectedRegions = role.regions || [];
+    this.selectedStatuses = role.statuses || [];
     this.fillRoleForm(role);
     this.updateRegionSuggestions([]);
+    this.updateStatusSuggestions([]);
     this.updateSelectedRegionsDisplay();
+    this.updateSelectedStatusesDisplay();
     
     const modal = document.getElementById('roleModal');
     const title = document.getElementById('roleModalTitle');
@@ -255,10 +326,12 @@ class RolesModule {
     const roleName = document.getElementById('roleName');
     const roleIsActive = document.getElementById('roleIsActive');
     const regionSearchInput = document.getElementById('regionSearchInput');
+    const statusSearchInput = document.getElementById('statusSearchInput');
     
     if (roleName) roleName.value = '';
     if (roleIsActive) roleIsActive.checked = true;
     if (regionSearchInput) regionSearchInput.value = '';
+    if (statusSearchInput) statusSearchInput.value = '';
   }
 
   /**
@@ -408,6 +481,148 @@ class RolesModule {
   }
 
   /**
+   * Обработка поиска статусов
+   */
+  handleStatusSearch(query) {
+    // Проверяем, что статусы загружены
+    if (!this.cache.statuses || this.cache.statuses.length === 0) {
+      console.warn('⚠️ Статусы не загружены, пытаемся загрузить...');
+      this.loadData();
+      return;
+    }
+
+    let filteredStatuses;
+    
+    if (!query || query.trim() === '') {
+      // Если поле пустое, показываем все доступные статусы
+      filteredStatuses = this.cache.statuses.filter(status => 
+        !this.selectedStatuses.includes(status)
+      );
+    } else {
+      // Если есть поисковый запрос, фильтруем по нему
+      filteredStatuses = this.cache.statuses.filter(status => 
+        status.toLowerCase().includes(query.toLowerCase()) &&
+        !this.selectedStatuses.includes(status)
+      );
+    }
+
+    this.updateStatusSuggestions(filteredStatuses);
+  }
+
+  /**
+   * Обновление списка предложений статусов
+   */
+  updateStatusSuggestions(statuses) {
+    const suggestionsContainer = document.getElementById('statusSuggestions');
+    if (!suggestionsContainer) return;
+
+    suggestionsContainer.innerHTML = '';
+
+    if (statuses.length === 0) {
+      suggestionsContainer.classList.remove('show');
+      return;
+    }
+
+    suggestionsContainer.classList.add('show');
+
+    statuses.forEach(status => {
+      const suggestion = document.createElement('div');
+      suggestion.className = 'suggestion-item';
+      suggestion.textContent = status;
+      suggestion.addEventListener('click', () => {
+        // Сразу добавляем статус при клике
+        this.addStatusDirectly(status);
+        this.updateStatusSuggestions([]);
+        const statusSearchInput = document.getElementById('statusSearchInput');
+        if (statusSearchInput) statusSearchInput.value = '';
+      });
+      suggestionsContainer.appendChild(suggestion);
+    });
+  }
+
+  /**
+   * Добавление статуса напрямую
+   */
+  addStatusDirectly(status) {
+    if (!this.selectedStatuses.includes(status)) {
+      this.selectedStatuses.push(status);
+      this.updateSelectedStatusesDisplay();
+      console.log('✅ Статус добавлен:', status);
+      
+      // Показываем краткое уведомление
+      if (window.utils) {
+        window.utils.showNotification(`Статус "${status}" добавлен`, 'success');
+      }
+    } else {
+      console.log('⚠️ Статус уже добавлен:', status);
+      
+      // Показываем уведомление о том, что статус уже добавлен
+      if (window.utils) {
+        window.utils.showNotification(`Статус "${status}" уже добавлен`, 'warning');
+      }
+    }
+  }
+
+  /**
+   * Добавление выбранного статуса из поля ввода
+   */
+  addSelectedStatus() {
+    const statusSearchInput = document.getElementById('statusSearchInput');
+    if (!statusSearchInput || !statusSearchInput.value.trim()) {
+      if (window.utils) {
+        window.utils.showNotification('Выберите статус из списка', 'error');
+      }
+      return;
+    }
+
+    const statusName = statusSearchInput.value.trim();
+    
+    // Проверяем, что введенный статус существует в списке доступных
+    if (!this.cache.statuses || !this.cache.statuses.includes(statusName)) {
+      if (window.utils) {
+        window.utils.showNotification('Выберите статус из предложенного списка', 'error');
+      }
+      return;
+    }
+    
+    this.addStatusDirectly(statusName);
+    statusSearchInput.value = '';
+    this.updateStatusSuggestions([]);
+  }
+
+  /**
+   * Обновление отображения выбранных статусов
+   */
+  updateSelectedStatusesDisplay() {
+    const container = document.getElementById('selectedStatusesContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    this.selectedStatuses.forEach(status => {
+      const statusCloud = document.createElement('div');
+      statusCloud.className = 'region-cloud'; // Используем тот же CSS класс
+      statusCloud.innerHTML = `
+        <span class="region-name">${status}</span>
+        <button class="remove-region-btn" data-status-name="${status}">&times;</button>
+      `;
+
+      const removeBtn = statusCloud.querySelector('.remove-region-btn');
+      removeBtn.addEventListener('click', () => this.removeStatus(status));
+
+      container.appendChild(statusCloud);
+    });
+  }
+
+  /**
+   * Удаление статуса из выбранных
+   */
+  removeStatus(statusName) {
+    this.selectedStatuses = this.selectedStatuses.filter(status => status !== statusName);
+    this.updateSelectedStatusesDisplay();
+  }
+
+  /**
    * Сохранение роли
    */
   async saveRole() {
@@ -424,7 +639,8 @@ class RolesModule {
     const roleData = {
       name: roleName.value.trim(),
       is_active: roleIsActive ? roleIsActive.checked : true,
-      regions: this.selectedRegions.map(region => region.id)
+      regions: this.selectedRegions.map(region => region.id),
+      statuses: this.selectedStatuses
     };
 
     try {
@@ -507,7 +723,7 @@ class RolesModule {
     tbody.innerHTML = '';
 
     if (this.cache.roles.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted);">Роли не найдены</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted);">Роли не найдены</td></tr>';
       return;
     }
 
@@ -525,6 +741,13 @@ class RolesModule {
           <div class="regions-container">
             ${(role.regions || []).map(region => 
               `<span class="region-cloud region-cloud-table" title="${region.name}">${this.truncateRegionName(region.name)}</span>`
+            ).join('')}
+          </div>
+        </td>
+        <td class="statuses-cell">
+          <div class="regions-container">
+            ${(role.statuses || []).map(status => 
+              `<span class="region-cloud region-cloud-table" title="${status}">${this.truncateRegionName(status)}</span>`
             ).join('')}
           </div>
         </td>

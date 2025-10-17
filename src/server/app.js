@@ -169,7 +169,7 @@ app.get('/main', authenticatePage, addMenuPermissions, (req, res) => {
 });
 
 
-app.get('/users', authenticatePage, addMenuPermissions, (req, res) => {
+app.get('/users', authenticatePage, requireAdmin, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу пользователей (/users) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'users.html');
@@ -183,7 +183,7 @@ app.get('/users', authenticatePage, addMenuPermissions, (req, res) => {
   });
 });
 
-app.get('/roles', authenticatePage, addMenuPermissions, (req, res) => {
+app.get('/roles', authenticatePage, requireAdmin, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу ролей (/roles) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'roles.html');
@@ -197,7 +197,7 @@ app.get('/roles', authenticatePage, addMenuPermissions, (req, res) => {
   });
 });
 
-app.get('/companies', authenticatePage, addMenuPermissions, (req, res) => {
+app.get('/companies', authenticatePage, requireAdmin, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу компаний (/companies) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'companies.html');
@@ -240,7 +240,7 @@ app.get('/analytics', authenticatePage, requireAdmin, addMenuPermissions, (req, 
 });
 
 
-app.get('/settings', authenticatePage, addMenuPermissions, (req, res) => {
+app.get('/settings', authenticatePage, requireAdmin, addMenuPermissions, (req, res) => {
   const userInfo = req.user ? req.user.login : 'неаутентифицированный пользователь';
   console.log('📄 Запрос на страницу настроек (/settings) для пользователя:', userInfo);
   const filePath = path.join(__dirname, '../client/pages', 'settings.html');

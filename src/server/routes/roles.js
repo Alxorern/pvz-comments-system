@@ -18,16 +18,24 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
           r.name,
           r.is_active,
           r.created_at,
-          GROUP_CONCAT(
+          GROUP_CONCAT(DISTINCT
             CASE 
               WHEN reg.name IS NOT NULL 
               THEN json_object('id', reg.id, 'name', reg.name)
               ELSE NULL 
             END
-          ) as regions_json
+          ) as regions_json,
+          GROUP_CONCAT(DISTINCT
+            CASE 
+              WHEN rs.status_name IS NOT NULL 
+              THEN rs.status_name
+              ELSE NULL 
+            END
+          ) as statuses_json
         FROM roles r
         LEFT JOIN role_regions rr ON r.id = rr.role_id
         LEFT JOIN regions reg ON rr.region_id = reg.id
+        LEFT JOIN role_statuses rs ON r.id = rs.role_id
         GROUP BY r.id, r.name, r.is_active, r.created_at
         ORDER BY r.name
       `, (err, rows) => {
@@ -36,8 +44,8 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
       });
     });
 
-    // Парсим JSON регионов для каждой роли
-    const rolesWithRegions = roles.map(role => {
+    // Парсим JSON регионов и статусов для каждой роли
+    const rolesWithRegionsAndStatuses = roles.map(role => {
       let regions = [];
       if (role.regions_json) {
         try {
@@ -49,13 +57,25 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
           regions = [];
         }
       }
+      
+      let statuses = [];
+      if (role.statuses_json) {
+        try {
+          statuses = role.statuses_json.split(',').filter(s => s && s.trim() !== '');
+        } catch (error) {
+          console.error('❌ Ошибка парсинга статусов для роли', role.id, ':', error);
+          statuses = [];
+        }
+      }
+      
       return {
         ...role,
-        regions: regions
+        regions: regions,
+        statuses: statuses
       };
     });
 
-    res.json({ success: true, data: rolesWithRegions });
+    res.json({ success: true, data: rolesWithRegionsAndStatuses });
   } catch (error) {
     console.error('❌ Ошибка получения ролей:', error);
     res.status(500).json({ 
@@ -98,7 +118,7 @@ router.get('/regions', authenticateToken, requireAdmin, async (req, res) => {
  */
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, is_active = 1, regions = [] } = req.body;
+    const { name, is_active = 1, regions = [], statuses = [] } = req.body;
     
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Название роли обязательно' });
@@ -124,42 +144,70 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
         const roleId = this.lastID;
         console.log(`✅ Роль "${name}" создана с ID: ${roleId}`);
 
-        // Если есть регионы, добавляем их
-        if (regions.length > 0) {
-          let regionsProcessed = 0;
-          
-          regions.forEach(regionId => {
-            db.run(`
-              INSERT INTO role_regions (role_id, region_id) 
-              VALUES (?, ?)
-            `, [roleId, regionId], function(err) {
-              if (err) {
-                console.error(`❌ Ошибка добавления региона ${regionId} к роли ${roleId}:`, err);
-                db.run('ROLLBACK');
-                return res.status(500).json({ error: 'Ошибка добавления региона к роли' });
-              } else {
-                console.log(`✅ Регион ${regionId} добавлен к роли ${roleId}`);
-              }
-              
-              regionsProcessed++;
-              if (regionsProcessed === regions.length) {
-                db.run('COMMIT');
-                res.json({ 
-                  success: true, 
-                  message: 'Роль создана успешно',
-                  id: roleId
-                });
-              }
+        // Добавляем регионы и статусы
+        let totalItems = regions.length + statuses.length;
+        let processedItems = 0;
+        let hasError = false;
+
+        // Функция для проверки завершения
+        const checkCompletion = () => {
+          processedItems++;
+          if (processedItems === totalItems && !hasError) {
+            db.run('COMMIT');
+            res.json({ 
+              success: true, 
+              message: 'Роль создана успешно',
+              id: roleId
             });
-          });
-        } else {
+          }
+        };
+
+        // Если нет ни регионов, ни статусов
+        if (totalItems === 0) {
           db.run('COMMIT');
           res.json({ 
             success: true, 
             message: 'Роль создана успешно',
             id: roleId
           });
+          return;
         }
+
+        // Добавляем регионы
+        regions.forEach(regionId => {
+          db.run(`
+            INSERT INTO role_regions (role_id, region_id) 
+            VALUES (?, ?)
+          `, [roleId, regionId], function(err) {
+            if (err) {
+              console.error(`❌ Ошибка добавления региона ${regionId} к роли ${roleId}:`, err);
+              hasError = true;
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: 'Ошибка добавления региона к роли' });
+            } else {
+              console.log(`✅ Регион ${regionId} добавлен к роли ${roleId}`);
+            }
+            checkCompletion();
+          });
+        });
+
+        // Добавляем статусы
+        statuses.forEach(statusName => {
+          db.run(`
+            INSERT INTO role_statuses (role_id, status_name) 
+            VALUES (?, ?)
+          `, [roleId, statusName], function(err) {
+            if (err) {
+              console.error(`❌ Ошибка добавления статуса ${statusName} к роли ${roleId}:`, err);
+              hasError = true;
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: 'Ошибка добавления статуса к роли' });
+            } else {
+              console.log(`✅ Статус ${statusName} добавлен к роли ${roleId}`);
+            }
+            checkCompletion();
+          });
+        });
       });
     });
   } catch (error) {
@@ -177,7 +225,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const roleId = req.params.id;
-    const { name, is_active, regions = [] } = req.body;
+    const { name, is_active, regions = [], statuses = [] } = req.body;
     
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Название роли обязательно' });
@@ -208,7 +256,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
         console.log(`✅ Роль ID ${roleId} обновлена`);
 
-        // Удаляем старые связи с регионами
+        // Удаляем старые связи с регионами и статусами
         db.run(`
           DELETE FROM role_regions 
           WHERE role_id = ?
@@ -219,10 +267,45 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(500).json({ error: 'Ошибка обновления связей с регионами' });
           }
 
-          // Добавляем новые связи с регионами
-          if (regions.length > 0) {
-            let regionsProcessed = 0;
-            
+          // Удаляем старые связи со статусами
+          db.run(`
+            DELETE FROM role_statuses 
+            WHERE role_id = ?
+          `, [roleId], function(err) {
+            if (err) {
+              console.error('❌ Ошибка удаления старых связей со статусами:', err);
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: 'Ошибка обновления связей со статусами' });
+            }
+
+            // Добавляем новые связи с регионами и статусами
+            let totalItems = regions.length + statuses.length;
+            let processedItems = 0;
+            let hasError = false;
+
+            // Функция для проверки завершения
+            const checkCompletion = () => {
+              processedItems++;
+              if (processedItems === totalItems && !hasError) {
+                db.run('COMMIT');
+                res.json({ 
+                  success: true, 
+                  message: 'Роль обновлена успешно'
+                });
+              }
+            };
+
+            // Если нет ни регионов, ни статусов
+            if (totalItems === 0) {
+              db.run('COMMIT');
+              res.json({ 
+                success: true, 
+                message: 'Роль обновлена успешно'
+              });
+              return;
+            }
+
+            // Добавляем регионы
             regions.forEach(regionId => {
               db.run(`
                 INSERT INTO role_regions (role_id, region_id) 
@@ -230,29 +313,34 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
               `, [roleId, regionId], function(err) {
                 if (err) {
                   console.error(`❌ Ошибка добавления региона ${regionId} к роли ${roleId}:`, err);
+                  hasError = true;
                   db.run('ROLLBACK');
                   return res.status(500).json({ error: 'Ошибка добавления региона к роли' });
                 } else {
                   console.log(`✅ Регион ${regionId} добавлен к роли ${roleId}`);
                 }
-                
-                regionsProcessed++;
-                if (regionsProcessed === regions.length) {
-                  db.run('COMMIT');
-                  res.json({ 
-                    success: true, 
-                    message: 'Роль обновлена успешно'
-                  });
-                }
+                checkCompletion();
               });
             });
-          } else {
-            db.run('COMMIT');
-            res.json({ 
-              success: true, 
-              message: 'Роль обновлена успешно'
+
+            // Добавляем статусы
+            statuses.forEach(statusName => {
+              db.run(`
+                INSERT INTO role_statuses (role_id, status_name) 
+                VALUES (?, ?)
+              `, [roleId, statusName], function(err) {
+                if (err) {
+                  console.error(`❌ Ошибка добавления статуса ${statusName} к роли ${roleId}:`, err);
+                  hasError = true;
+                  db.run('ROLLBACK');
+                  return res.status(500).json({ error: 'Ошибка добавления статуса к роли' });
+                } else {
+                  console.log(`✅ Статус ${statusName} добавлен к роли ${roleId}`);
+                }
+                checkCompletion();
+              });
             });
-          }
+          });
         });
       });
     });
@@ -315,6 +403,38 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     console.error('❌ Ошибка удаления роли:', error);
     res.status(500).json({ 
       error: 'Ошибка удаления роли',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/roles/statuses - Получить все уникальные статусы из таблицы pvz
+ */
+router.get('/statuses', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const db = database.getDb();
+    
+    const statuses = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT DISTINCT status_name 
+        FROM pvz 
+        WHERE status_name IS NOT NULL AND status_name != ''
+        ORDER BY status_name
+      `, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    res.json({ 
+      success: true, 
+      data: statuses.map(row => row.status_name)
+    });
+  } catch (error) {
+    console.error('❌ Ошибка получения статусов:', error);
+    res.status(500).json({ 
+      error: 'Ошибка получения статусов',
       details: error.message 
     });
   }

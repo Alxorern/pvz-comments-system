@@ -2,6 +2,14 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
+// Импортируем конфигурацию базы данных
+let dbConfig;
+try {
+  dbConfig = require('../../database-config');
+} catch (error) {
+  console.warn('⚠️ Не удалось загрузить database-config.js, используем стандартные пути');
+}
+
 class Database {
   constructor() {
     this.db = null;
@@ -14,11 +22,18 @@ class Database {
         process.env.DATABASE_PATH = '/app/data/billing.db';
       }
       
-      // Используем переменную окружения или путь по умолчанию
-      const dbPath = process.env.DATABASE_PATH || 
-        (process.env.NODE_ENV === 'production' 
-          ? '/app/data/billing.db'  // Используем Volume
-          : path.join(__dirname, '../../../billing.db'));
+      // Используем переменную окружения, конфигурацию или путь по умолчанию
+      let dbPath;
+      if (process.env.DATABASE_PATH) {
+        dbPath = process.env.DATABASE_PATH;
+      } else if (dbConfig) {
+        dbPath = dbConfig.getDatabasePath();
+        console.log('🔧 Используем путь из database-config.js:', dbPath);
+      } else if (process.env.NODE_ENV === 'production') {
+        dbPath = '/app/data/billing.db';  // Используем Volume
+      } else {
+        dbPath = path.join(__dirname, '../../../billing.db');  // Локальная разработка
+      }
       
       console.log(`🗄️ Подключение к БД по пути: ${dbPath}`);
       

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { requireAdmin, requireAnyRole, addUserRegions, addMenuPermissions } = require('../middleware/roles');
+const { requireAdmin, requireAnyRole, addUserRegions, addUserStatuses, addMenuPermissions } = require('../middleware/roles');
 const googleSheetsService = require('../services/googleSheetsService');
 const scheduler = require('../services/scheduler');
 const database = require('../database/db');
@@ -197,7 +197,7 @@ router.get('/pvz', authenticateToken, addMenuPermissions, async (req, res) => {
 /**
  * GET /api/data/pvz-with-comments - Получить данные ПВЗ с последними комментариями
  */
-router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addMenuPermissions, addUserRegions, async (req, res) => {
+router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addMenuPermissions, addUserRegions, addUserStatuses, async (req, res) => {
   try {
     console.log('📊 Запрос pvz-with-comments:', req.query);
     console.log('👤 Пользователь:', req.user);
@@ -311,7 +311,18 @@ router.get('/pvz-with-comments', authenticateToken, requireAnyRole, addMenuPermi
       params.push(`%${company}%`);
     }
     
+    // Фильтрация по статусам (если у пользователя есть ограничения по статусам)
+    console.log('🔍 Фильтрация по статусам - req.userStatuses:', req.userStatuses);
+    if (req.userStatuses && req.userStatuses.length > 0) {
+      const placeholders = req.userStatuses.map(() => '?').join(',');
+      whereConditions.push(`p.status_name IN (${placeholders})`);
+      params.push(...req.userStatuses);
+      console.log('📊 Добавлено условие фильтрации по статусам:', req.userStatuses);
+    }
+    
     const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+    console.log('🔍 Итоговый WHERE clause:', whereClause);
+    console.log('🔍 Параметры запроса:', params);
     
     // Запрос с LEFT JOIN для получения последнего комментария для каждого ПВЗ и данных компании
     const baseQuery = `
@@ -777,6 +788,8 @@ router.get('/regions', authenticateToken, requireAnyRole, addUserRegions, async 
       console.log(`🔍 Superuser получил ${regions.length} регионов:`, regions.slice(0, 5));
     } else {
       // Обычные пользователи видят только свои регионы
+      console.log('🔍 Обычный пользователь - req.userRegions:', req.userRegions);
+      console.log('🔍 Обычный пользователь - req.user:', req.user);
       regions = req.userRegions || [];
       console.log(`🔍 Пользователь получил ${regions.length} регионов:`, regions.slice(0, 5));
     }
@@ -798,7 +811,7 @@ router.get('/regions', authenticateToken, requireAnyRole, addUserRegions, async 
 /**
  * POST /api/data/export - Экспорт данных в XLS файл
  */
-router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, async (req, res) => {
+router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, addUserStatuses, async (req, res) => {
   try {
     const { filters } = req.body;
     
@@ -894,6 +907,13 @@ router.post('/export', authenticateToken, addMenuPermissions, addUserRegions, as
     if (company) {
       whereConditions.push('c.company_name LIKE ?');
       params.push(`%${company}%`);
+    }
+    
+    // Фильтрация по статусам (если у пользователя есть ограничения по статусам)
+    if (req.userStatuses && req.userStatuses.length > 0) {
+      const placeholders = req.userStatuses.map(() => '?').join(',');
+      whereConditions.push(`p.status_name IN (${placeholders})`);
+      params.push(...req.userStatuses);
     }
     
     const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';

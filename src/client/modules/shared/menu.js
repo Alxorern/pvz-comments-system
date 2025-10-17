@@ -28,9 +28,9 @@ class MenuManager {
                 this.updateUserInfo(user);
                 
                 // Обновляем меню на основе доступных пунктов
-                if (response.menuItems && Array.isArray(response.menuItems)) {
-                    console.log('📋 Доступные пункты меню:', response.menuItems);
-                    this.updateMenu(response.menuItems);
+                if (user.menuItems && Array.isArray(user.menuItems)) {
+                    console.log('📋 Доступные пункты меню:', user.menuItems);
+                    this.updateMenu(user.menuItems);
                 } else {
                     console.log('📋 Используем fallback - показываем все пункты меню');
                     this.showAllMenuItems();
@@ -108,14 +108,21 @@ class MenuManager {
     }
 
     showAllMenuItems() {
-        // Fallback - показываем все пункты меню
-        console.log('🔄 Показываем все пункты меню (fallback)');
+        // Fallback - показываем только базовые пункты меню (только pvz)
+        console.log('🔄 Показываем базовые пункты меню (fallback)');
         const navContainers = document.querySelectorAll('.sidebar-nav, .nav');
         
         navContainers.forEach(container => {
             const allMenuItems = container.querySelectorAll('.nav-item:not(#btnLogout)');
             allMenuItems.forEach(menuItem => {
-                menuItem.style.display = '';
+                const href = menuItem.getAttribute('href');
+                // Показываем только pvz
+                if (href === '/pvz') {
+                    menuItem.style.display = '';
+                } else {
+                    // Скрываем все остальные пункты: analytics, companies, users, roles, settings
+                    menuItem.style.display = 'none';
+                }
             });
         });
     }

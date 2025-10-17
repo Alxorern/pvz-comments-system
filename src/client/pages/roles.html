@@ -71,6 +71,7 @@
                             <th>Название</th>
                             <th>Активна</th>
                             <th>Регионы</th>
+                            <th>Статусы</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -107,6 +108,17 @@
                     </div>
                     <div id="selectedRegionsContainer" class="selected-regions-container">
                         <!-- Selected regions will appear here as "clouds" -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Статусы</label>
+                    <div class="statuses-input-group">
+                        <input type="text" id="statusSearchInput" placeholder="Кликните для выбора статуса...">
+                        <button class="btn btn-secondary" id="addStatusBtn">Добавить</button>
+                        <div id="statusSuggestions" class="suggestions-list"></div>
+                    </div>
+                    <div id="selectedStatusesContainer" class="selected-regions-container">
+                        <!-- Selected statuses will appear here as "clouds" -->
                     </div>
                 </div>
             </div>
